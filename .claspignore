@@ -1,0 +1,9 @@
+# Clasp ignore configuration
+node_modules/**
+package.json
+package-lock.json
+test/**
+README.md
+walkthrough.md
+Consolidated_Code.gs
+.git/**

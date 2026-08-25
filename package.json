@@ -1,0 +1,14 @@
+{
+  "name": "dispatch-efficiency-ratio",
+  "version": "1.0.0",
+  "description": "Google Sheets Fleet Dispatch Efficiency Engine",
+  "main": "AnalysisBuilder.js",
+  "scripts": {
+    "test": "node test/engine.test.js",
+    "push": "node push-script.js",
+    "status": "node test/check-auth.js"
+  },
+  "devDependencies": {
+    "@google/clasp": "^2.4.2"
+  }
+}
