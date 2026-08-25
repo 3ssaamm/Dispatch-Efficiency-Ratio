@@ -11,6 +11,9 @@ const {
   isSummaryRowName,
   parseNumericValue
 } = require('../DriveSync');
+const {
+  aggregateCumulativeDriverData
+} = require('../MasterSummaryBuilder');
 
 console.log('🧪 Running Fleet Dispatch Efficiency Engine Test Suite...\n');
 
@@ -44,54 +47,42 @@ assert.strictEqual(aug2026.totalHours, 819);
 console.log('  ✓ August 2026 calendar math verified: exactly 819.0 hours (21 active weekdays * 39h/day)');
 
 // ----------------------------------------------------
-// TEST SUITE 3: Daily Driver Aggregation Verification
+// TEST SUITE 3: Multi-Month Master Summary Cumulative Aggregation
 // ----------------------------------------------------
-console.log('\n--- Test Suite 3: Driver Daily Record Aggregation ---');
+console.log('\n--- Test Suite 3: Multi-Month Driver Cumulative Aggregation ---');
 
-// Simulated daily raw rows from source spreadsheet
-const sampleDailyRows = [
-  { driver: 'Brian Macancela', hours: 6.0, trips: 5 },
-  { driver: 'Koba Svanadze', hours: 5.5, trips: 5 },
-  { driver: 'Nikolay Iankov', hours: 10.0, trips: 14 },
-  { driver: 'Brian Macancela', hours: 10.0, trips: 13 },
-  { driver: 'Koba Svanadze', hours: 15.0, trips: 19 },
-  { driver: 'Nikolay Iankov', hours: 9.5, trips: 13 },
-  { driver: 'brian macancela', hours: 9.0, trips: 14 }, // Test case-insensitivity
-  { driver: 'Total Fleet Sum', hours: 65.0, trips: 70 } // Test summary skip
+const mockMonths = [
+  {
+    monthName: 'August',
+    year: 2026,
+    drivers: [
+      { driverName: 'Brian Macancela', hours: 140.0, trips: 180 },
+      { driverName: 'Koba Svanadze', hours: 120.5, trips: 150 }
+    ]
+  },
+  {
+    monthName: 'September',
+    year: 2026,
+    drivers: [
+      { driverName: 'Brian Macancela', hours: 160.0, trips: 210 },
+      { driverName: 'Nikolay Iankov', hours: 110.0, trips: 130 }
+    ]
+  }
 ];
 
-const driverMap = {};
-for (const row of sampleDailyRows) {
-  if (isSummaryRowName(row.driver)) continue;
-  const key = row.driver.toLowerCase();
-  if (!driverMap[key]) {
-    driverMap[key] = { driverName: row.driver, hours: 0, trips: 0, count: 0 };
-  }
-  driverMap[key].hours += row.hours;
-  driverMap[key].trips += row.trips;
-  driverMap[key].count += 1;
-}
+const cumulative = aggregateCumulativeDriverData(mockMonths);
+console.log(`  Processed 2 months -> Cumulative unique drivers: ${cumulative.length}`);
+assert.strictEqual(cumulative.length, 3, 'Must have 3 unique cumulative drivers');
 
-const uniqueList = Object.values(driverMap);
-uniqueList.sort((a, b) => b.hours - a.hours);
+const brianCum = cumulative.find(d => d.driverName === 'Brian Macancela');
+assert.strictEqual(brianCum.monthsActive, 2);
+assert.strictEqual(brianCum.totalHours, 300.0);
+assert.strictEqual(brianCum.totalTrips, 390);
+console.log(`  ✓ Brian Macancela cumulative: 2 months active, 300.0 hrs, 390 trips`);
 
-console.log(`  Raw daily entries: ${sampleDailyRows.length - 1} -> Aggregated unique drivers: ${uniqueList.length}`);
-assert.strictEqual(uniqueList.length, 3, 'Must aggregate down to 3 unique drivers');
-
-const brian = uniqueList.find(d => d.driverName.toLowerCase() === 'brian macancela');
-assert.strictEqual(brian.hours, 25.0, 'Brian Macancela total hours must equal 6.0 + 10.0 + 9.0 = 25.0');
-assert.strictEqual(brian.trips, 32, 'Brian Macancela total trips must equal 5 + 13 + 14 = 32');
-assert.strictEqual(brian.count, 3, 'Brian Macancela appeared in 3 daily entries');
-console.log(`  ✓ Brian Macancela: 3 daily entries aggregated -> ${brian.hours} hrs, ${brian.trips} trips`);
-
-const koba = uniqueList.find(d => d.driverName.toLowerCase() === 'koba svanadze');
-assert.strictEqual(koba.hours, 20.5);
-assert.strictEqual(koba.trips, 24);
-console.log(`  ✓ Koba Svanadze: 2 daily entries aggregated -> ${koba.hours} hrs, ${koba.trips} trips`);
-
-const nikolay = uniqueList.find(d => d.driverName.toLowerCase() === 'nikolay iankov');
-assert.strictEqual(nikolay.hours, 19.5);
-assert.strictEqual(nikolay.trips, 27);
-console.log(`  ✓ Nikolay Iankov: 2 daily entries aggregated -> ${nikolay.hours} hrs, ${nikolay.trips} trips`);
+const kobaCum = cumulative.find(d => d.driverName === 'Koba Svanadze');
+assert.strictEqual(kobaCum.monthsActive, 1);
+assert.strictEqual(kobaCum.totalHours, 120.5);
+console.log(`  ✓ Koba Svanadze cumulative: 1 month active, 120.5 hrs`);
 
 console.log('\n🎉 ALL TEST SUITES PASSED!\n');

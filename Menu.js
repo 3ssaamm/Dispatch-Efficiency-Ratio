@@ -12,12 +12,23 @@ function onOpen() {
     .addItem('🔄 Sync All Monthly Files from Drive', 'menuSyncAllMonthlyFiles')
     .addItem('📅 Sync Selected Month', 'menuSyncSelectedMonth')
     .addSeparator()
+    .addItem('📊 Open / Refresh "Master Summary" Tab', 'menuBuildMasterSummaryTab')
     .addItem('⚡ Recalculate All Dispatch Ratios', 'menuRecalculateRatios')
     .addSeparator()
     .addItem('📖 Open / Refresh "Read Me & Guide" Tab', 'menuBuildReadMeTab')
     .addItem('⚙️ Open / Reset Settings Tab', 'initSettingsSheet')
     .addItem('🧪 Generate Sample Data in Drive (Demo)', 'menuGenerateSampleData')
     .addToUi();
+}
+
+/**
+ * Menu Handler: Builds or refreshes the Master Summary tab.
+ */
+function menuBuildMasterSummaryTab() {
+  showToast('Building Master Summary across all months...', 'Master Summary', 6);
+  const sheet = buildMasterSummarySheet();
+  SpreadsheetApp.getActiveSpreadsheet().setActiveSheet(sheet);
+  showToast('Master Summary tab refreshed successfully!', 'Master Summary Ready', 5);
 }
 
 /**
@@ -52,11 +63,13 @@ function menuSyncAllMonthlyFiles() {
     let successCount = 0;
     let warningCount = 0;
     const summaryLog = [];
+    const allMonthsData = [];
 
     for (const item of matchedFiles) {
       try {
         const monthData = extractDriverDataFromSummary(item.fileId, item.monthIndex, item.year);
         buildMonthlyAnalysisSheet(monthData);
+        allMonthsData.push(monthData);
 
         let warnMsg = '';
         if (monthData.warnings && monthData.warnings.length > 0) {
@@ -73,13 +86,18 @@ function menuSyncAllMonthlyFiles() {
       }
     }
 
+    // Build/Refresh Master Summary tab
+    if (allMonthsData.length > 0) {
+      buildMasterSummarySheet(allMonthsData);
+    }
+
     const logStatus = warningCount > 0 ? 'WARNING' : 'SUCCESS';
     logExecution('Sync All', logStatus, `Processed ${matchedFiles.length} file(s) from Drive.`, summaryLog.join('\n'));
 
     showAlert(
       `Sync Complete!\n\nProcessed ${matchedFiles.length} monthly spreadsheet(s):\n\n` +
       summaryLog.join('\n') +
-      `\n\nDaily entries have been aggregated into UNIQUE drivers per month with live KPI cards and ratios.\nCheck the "📖 Read Me & Guide" tab for detailed metric explanations!`,
+      `\n\n✅ Individual monthly analysis tabs generated.\n✅ "📊 Master Summary" tab created with multi-month trends and driver leaderboard.\n✅ "📖 Read Me & Guide" tab available for reference.`,
       'Sync Summary'
     );
 
@@ -133,6 +151,9 @@ function menuSyncSelectedMonth() {
     const monthData = extractDriverDataFromSummary(targetFile.fileId, targetFile.monthIndex, targetFile.year);
     const sheet = buildMonthlyAnalysisSheet(monthData);
 
+    // Refresh Master Summary
+    buildMasterSummarySheet();
+
     SpreadsheetApp.getActiveSpreadsheet().setActiveSheet(sheet);
 
     logExecution('Sync Selected Month', 'SUCCESS', `Successfully synced ${targetFile.monthName} ${targetFile.year}`, `${monthData.driverCount} unique drivers (${monthData.rawRowsProcessed || 0} daily entries aggregated)`);
@@ -142,7 +163,8 @@ function menuSyncSelectedMonth() {
       `• Daily Entries Aggregated: ${monthData.rawRowsProcessed || 0}\n` +
       `• Fleet Active Hours: ${monthData.totalDriverHours.toFixed(1)} hrs\n` +
       `• Completed Trips: ${monthData.totalTrips}\n` +
-      `• Tab: "${sheet.getName()}"`,
+      `• Tab: "${sheet.getName()}"\n` +
+      `• Master Summary updated!`,
       'Month Synced'
     );
 
@@ -175,8 +197,11 @@ function menuRecalculateRatios() {
     }
   }
 
+  // Refresh Master Summary
+  buildMasterSummarySheet();
+
   logExecution('Recalculate Ratios', 'SUCCESS', `Recalculated dispatch labor on ${updatedCount} analysis tab(s).`);
-  showAlert(`Successfully recalculated dispatch schedules across ${updatedCount} analysis sheet(s).`, 'Recalculation Complete');
+  showAlert(`Successfully recalculated dispatch schedules across ${updatedCount} analysis sheet(s) and refreshed Master Summary.`, 'Recalculation Complete');
 }
 
 /**

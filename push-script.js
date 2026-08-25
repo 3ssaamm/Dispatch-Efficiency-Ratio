@@ -126,6 +126,11 @@ async function pushToAppsScript() {
       filePath: path.join(__dirname, 'ReadMeBuilder.js')
     },
     {
+      name: 'MasterSummaryBuilder',
+      type: 'SERVER_JS',
+      filePath: path.join(__dirname, 'MasterSummaryBuilder.js')
+    },
+    {
       name: 'SettingsManager',
       type: 'SERVER_JS',
       filePath: path.join(__dirname, 'SettingsManager.js')
