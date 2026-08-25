@@ -15,9 +15,8 @@ async function getAccessToken() {
     throw new Error('No valid tokens found in .clasprc.json.');
   }
 
-  // Check if access token is still fresh, or refresh it
   const expiry = tokens.expiry_date || (tokens.expires_at ? tokens.expires_at * 1000 : 0);
-  const isExpired = Date.now() > (expiry - 60000); // 1 min buffer
+  const isExpired = Date.now() > (expiry - 60000);
 
   if (!isExpired && tokens.access_token) {
     return tokens.access_token;
@@ -69,7 +68,6 @@ async function getAccessToken() {
     req.end();
   });
 
-  // Update .clasprc.json
   tokens.access_token = refreshed.access_token;
   if (refreshed.expires_in) {
     tokens.expiry_date = Date.now() + refreshed.expires_in * 1000;
@@ -96,7 +94,6 @@ async function pushToAppsScript() {
 
   const accessToken = await getAccessToken();
 
-  // Prepare files array
   const filesToPush = [
     {
       name: 'appsscript',
@@ -122,6 +119,11 @@ async function pushToAppsScript() {
       name: 'AnalysisBuilder',
       type: 'SERVER_JS',
       filePath: path.join(__dirname, 'AnalysisBuilder.js')
+    },
+    {
+      name: 'ReadMeBuilder',
+      type: 'SERVER_JS',
+      filePath: path.join(__dirname, 'ReadMeBuilder.js')
     },
     {
       name: 'SettingsManager',

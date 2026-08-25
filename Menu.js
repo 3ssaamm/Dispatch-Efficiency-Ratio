@@ -14,20 +14,31 @@ function onOpen() {
     .addSeparator()
     .addItem('⚡ Recalculate All Dispatch Ratios', 'menuRecalculateRatios')
     .addSeparator()
+    .addItem('📖 Open / Refresh "Read Me & Guide" Tab', 'menuBuildReadMeTab')
     .addItem('⚙️ Open / Reset Settings Tab', 'initSettingsSheet')
     .addItem('🧪 Generate Sample Data in Drive (Demo)', 'menuGenerateSampleData')
-    .addItem('📖 User Guide & Metric Formulas', 'menuShowUserGuide')
     .addToUi();
+}
+
+/**
+ * Menu Handler: Builds or refreshes the Read Me & Guide tab.
+ */
+function menuBuildReadMeTab() {
+  const sheet = buildReadMeSheet();
+  SpreadsheetApp.getActiveSpreadsheet().setActiveSheet(sheet);
+  showToast('Read Me & Guide tab refreshed successfully!', 'Guide Ready', 5);
 }
 
 /**
  * Menu Handler: Syncs all monthly balance spreadsheets found in the Drive folder & subfolders.
  */
 function menuSyncAllMonthlyFiles() {
-  const ui = SpreadsheetApp.getUi();
   showToast('Scanning Drive folder for monthly balance spreadsheets...', 'Sync in Progress', 10);
 
   try {
+    // Ensure Read Me tab exists
+    buildReadMeSheet();
+
     const matchedFiles = findMonthlyBalanceFiles();
 
     if (!matchedFiles || matchedFiles.length === 0) {
@@ -55,7 +66,7 @@ function menuSyncAllMonthlyFiles() {
           successCount++;
         }
 
-        summaryLog.push(`• ${item.monthName} ${item.year} (${item.folderName}): ${monthData.driverCount} drivers, ${monthData.totalDriverHours.toFixed(1)} hrs ${warnMsg ? '⚠️ ' + warnMsg : '✅'}`);
+        summaryLog.push(`• ${item.monthName} ${item.year} (${item.folderName}): ${monthData.driverCount} unique drivers (${monthData.rawRowsProcessed || 0} daily entries aggregated), ${monthData.totalDriverHours.toFixed(1)} hrs ${warnMsg ? '⚠️ ' + warnMsg : '✅'}`);
       } catch (fileErr) {
         summaryLog.push(`• ${item.fileName} (${item.folderName}): ❌ ERROR - ${fileErr.message}`);
         logExecution('Sync File', 'ERROR', `Failed to process ${item.fileName}`, fileErr.message);
@@ -68,7 +79,7 @@ function menuSyncAllMonthlyFiles() {
     showAlert(
       `Sync Complete!\n\nProcessed ${matchedFiles.length} monthly spreadsheet(s):\n\n` +
       summaryLog.join('\n') +
-      `\n\nEach monthly analysis tab has been created/updated with live KPI cards and driver ratios.`,
+      `\n\nDaily entries have been aggregated into UNIQUE drivers per month with live KPI cards and ratios.\nCheck the "📖 Read Me & Guide" tab for detailed metric explanations!`,
       'Sync Summary'
     );
 
@@ -104,6 +115,8 @@ function menuSyncSelectedMonth() {
   showToast(`Searching for ${parsed.monthName} ${parsed.year} balance file...`, 'Syncing Month', 8);
 
   try {
+    buildReadMeSheet();
+
     const matchedFiles = findMonthlyBalanceFiles();
     const targetFile = matchedFiles.find(f => 
       f.monthIndex === parsed.monthIndex && (f.year === parsed.year || matchedFiles.length === 1)
@@ -122,10 +135,11 @@ function menuSyncSelectedMonth() {
 
     SpreadsheetApp.getActiveSpreadsheet().setActiveSheet(sheet);
 
-    logExecution('Sync Selected Month', 'SUCCESS', `Successfully synced ${targetFile.monthName} ${targetFile.year}`, `${monthData.driverCount} drivers`);
+    logExecution('Sync Selected Month', 'SUCCESS', `Successfully synced ${targetFile.monthName} ${targetFile.year}`, `${monthData.driverCount} unique drivers (${monthData.rawRowsProcessed || 0} daily entries aggregated)`);
     showAlert(
       `Successfully synced ${targetFile.monthName} ${targetFile.year}!\n\n` +
-      `• Drivers Loaded: ${monthData.driverCount}\n` +
+      `• Unique Drivers: ${monthData.driverCount}\n` +
+      `• Daily Entries Aggregated: ${monthData.rawRowsProcessed || 0}\n` +
       `• Fleet Active Hours: ${monthData.totalDriverHours.toFixed(1)} hrs\n` +
       `• Completed Trips: ${monthData.totalTrips}\n` +
       `• Tab: "${sheet.getName()}"`,
@@ -149,12 +163,10 @@ function menuRecalculateRatios() {
   for (const sheet of sheets) {
     const name = sheet.getName();
     if (name.includes('- Analysis')) {
-      // Re-trigger calculation by checking formulas and updating formatting if necessary
       const monthPart = name.replace('- Analysis', '').trim();
       const parsed = parseMonthAndYear(monthPart);
       const schedule = calculateMonthlyDispatchHours(parsed.monthIndex, parsed.year);
 
-      // Refresh standard dispatch hours in cell C4 if present
       const labelC3 = sheet.getRange('C3').getValue();
       if (labelC3 && String(labelC3).includes('STANDARD DISPATCH')) {
         sheet.getRange('C4').setValue(schedule.totalHours);
@@ -187,26 +199,4 @@ function menuGenerateSampleData() {
   } catch (err) {
     showAlert(`Failed to generate sample data: ${err.message}`, 'Error');
   }
-}
-
-/**
- * Menu Handler: Displays an informational guide about the calculations.
- */
-function menuShowUserGuide() {
-  const guideText = 
-    `📊 FLEET DISPATCH EFFICIENCY ENGINE — GUIDE\n\n` +
-    `1. Calendar Shift Schedule (4 Dispatchers):\n` +
-    `   • Monday – Friday: 39 hrs/day (3 × 10h + 1 × 9h)\n` +
-    `   • Saturday & Sunday: 0 hrs/day (OFF)\n\n` +
-    `2. Key Metrics & Formulas:\n` +
-    `   • Total Dispatch Hours = Standard Dispatch Hours + Overtime\n` +
-    `   • Fleet Dispatch Ratio = Total Dispatch Hours / Total Driver Hours\n` +
-    `   • Support Mins / Road Hr = Fleet Dispatch Ratio × 60\n` +
-    `   • Driver Leverage Ratio = Total Driver Hours / Total Dispatch Hours\n` +
-    `   • Allocated Dispatch Hours = Driver Active Hours × Fleet Dispatch Ratio\n` +
-    `   • Trips Supported / Disp Hr = Completed Trips / Allocated Dispatch Hours\n\n` +
-    `3. Interactive Features:\n` +
-    `   • You can edit cell E4 (Overtime / Adj) in any Analysis tab to instantly recalculate all ratios in real time!`;
-
-  showAlert(guideText, 'Fleet Dispatch Engine Guide');
 }
