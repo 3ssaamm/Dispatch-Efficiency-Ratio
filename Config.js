@@ -1,7 +1,7 @@
 /**
  * @fileoverview Configuration file for Fleet Dispatch Efficiency Engine.
  * Contains global settings, Drive folder definitions, shift configurations,
- * header mappings, and UI theme styling.
+ * header mappings, driver name alias merging, and UI theme styling.
  */
 
 const CONFIG = {
@@ -13,23 +13,21 @@ const CONFIG = {
   SOURCE_SHEET_NAME: 'Summary',
 
   // File naming regex / pattern
-  // Matches "August - Drivers Daily Balance", "August 2026 - Drivers Daily Balance", etc.
   FILE_NAME_PATTERN: /^(.*)\s*-\s*Drivers Daily Balance$/i,
 
-  // Dispatcher shift schedules and daily labor hours
-  // 4 Dispatchers:
+  // Dispatcher shift schedules and daily labor hours (4 Dispatchers)
   // - Disp 1: 10h Mon-Fri (Sat/Sun OFF)
   // - Disp 2: 10h Mon-Fri (Sat/Sun OFF)
   // - Disp 3: 10h Mon-Fri (Sat/Sun OFF)
-  // - Disp 4: 9h Mon-Fri (Sat/Sun OFF) [Per user schedule specification]
-  // Sunday = 0, Monday = 1, Tuesday = 2, Wednesday = 3, Thursday = 4, Friday = 5, Saturday = 6
+  // - Disp 4: 9h Mon-Fri (Sat/Sun OFF)
+  // Total Weekday = 10 + 10 + 10 + 9 = 39 hrs/day. Sat & Sun = 0 hrs/day.
   DISPATCH_HOURS_BY_DAY_OF_WEEK: {
     0: 0,   // Sunday: Fleet-wide OFF
-    1: 39,  // Monday: 10 + 10 + 10 + 9 = 39 hrs
-    2: 39,  // Tuesday: 10 + 10 + 10 + 9 = 39 hrs
-    3: 39,  // Wednesday: 10 + 10 + 10 + 9 = 39 hrs
-    4: 39,  // Thursday: 10 + 10 + 10 + 9 = 39 hrs
-    5: 39,  // Friday: 10 + 10 + 10 + 9 = 39 hrs
+    1: 39,  // Monday: 39 hrs
+    2: 39,  // Tuesday: 39 hrs
+    3: 39,  // Wednesday: 39 hrs
+    4: 39,  // Thursday: 39 hrs
+    5: 39,  // Friday: 39 hrs
     6: 0    // Saturday: OFF
   },
 
@@ -40,6 +38,20 @@ const CONFIG = {
     { id: 3, name: 'Dispatcher 3', dailyHours: 10, workDays: [1, 2, 3, 4, 5], offDays: [0, 6] },
     { id: 4, name: 'Dispatcher 4', dailyHours: 9,  workDays: [1, 2, 3, 4, 5], offDays: [0, 6] }
   ],
+
+  // Driver Name Alias Mapping: Automatically merges single first names into canonical full names
+  DRIVER_ALIASES: {
+    'angel': 'Angel Yoy',
+    'brian': 'Brian Macancela',
+    'nikolay': 'Nikolay Iankov',
+    'biaoming': 'Biaoming Feng',
+    'oumarou': 'Oumarou Amadou',
+    'koba': 'Koba Svanadze',
+    'prince': 'Prince Verma',
+    'amadou': 'Amadou Diallo',
+    'amdou': 'Amadou Diallo',
+    'benjamin': 'Benjamin Douglass'
+  },
 
   // Column header aliases for dynamic column lookup in the 'Summary' tab
   HEADER_ALIASES: {
@@ -68,7 +80,6 @@ const CONFIG = {
     borderLight: '#e2e8f0'     // Row dividers
   },
 
-  // Default Sheet Names
   SETTINGS_SHEET_NAME: 'Settings',
   LOG_SHEET_NAME: 'Execution Log'
 };

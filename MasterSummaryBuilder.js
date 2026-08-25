@@ -1,9 +1,25 @@
 /**
  * @fileoverview Master Summary Sheet Builder.
- * Generates an executive '📊 Master Summary' tab consolidating all monthly
- * analysis sheets with month-over-month trend tables, live dynamic formulas,
- * aggregate KPI cards, and a cumulative driver leaderboard.
+ * Consolidates all monthly balance sheets with month-over-month trend tables,
+ * live dynamic formulas, aggregate KPI cards, and an intelligently merged
+ * cumulative driver leaderboard.
  */
+
+// Node.js fallback import for testing
+let _CONFIG_MS = (typeof CONFIG !== 'undefined') ? CONFIG : null;
+let _isSummaryRowName = (typeof isSummaryRowName === 'function') ? isSummaryRowName : null;
+let _normalizeDriverName = (typeof normalizeDriverName === 'function') ? normalizeDriverName : null;
+
+if (typeof require !== 'undefined') {
+  try {
+    if (!_CONFIG_MS) _CONFIG_MS = require('./Config').CONFIG;
+    if (!_isSummaryRowName || !_normalizeDriverName) {
+      const ds = require('./DriveSync');
+      if (!_isSummaryRowName) _isSummaryRowName = ds.isSummaryRowName;
+      if (!_normalizeDriverName) _normalizeDriverName = ds.normalizeDriverName;
+    }
+  } catch (e) {}
+}
 
 /**
  * Builds or refreshes the '📊 Master Summary' sheet tab.
@@ -25,17 +41,14 @@ function buildMasterSummarySheet(allMonthsData, targetSpreadsheet) {
     sheet.clear();
     sheet.clearConditionalFormatRules();
   } else {
-    // Insert right after the Read Me tab (index 1)
     sheet = ss.insertSheet(tabName, 1);
   }
 
-  // If allMonthsData is not passed, discover from existing analysis sheets in the workbook
   let months = allMonthsData;
   if (!months || months.length === 0) {
     months = collectDataFromExistingAnalysisSheets(ss);
   }
 
-  // Sort months chronologically
   months.sort((a, b) => (a.year - b.year) || (a.monthIndex - b.monthIndex));
 
   const monthCount = months.length;
@@ -43,7 +56,7 @@ function buildMasterSummarySheet(allMonthsData, targetSpreadsheet) {
   const endMonthRow = startMonthRow + Math.max(monthCount - 1, 0);
   const totalMonthRow = endMonthRow + 1;
 
-  // Build Multi-Month Driver Cumulative Aggregation
+  // Build Multi-Month Driver Cumulative Aggregation with Name Merging
   const cumulativeDrivers = aggregateCumulativeDriverData(months);
   const driverCount = cumulativeDrivers.length;
   const startDriverRow = totalMonthRow + 4;
@@ -51,7 +64,7 @@ function buildMasterSummarySheet(allMonthsData, targetSpreadsheet) {
   const totalDriverRow = endDriverRow + 1;
 
   const totalRowsNeeded = Math.max(totalDriverRow + 5, 40);
-  const totalCols = 12; // Columns A to L
+  const totalCols = 12;
   const matrix = Array.from({ length: totalRowsNeeded }, () => Array(totalCols).fill(''));
 
   // Row 1: Title Banner
@@ -60,44 +73,44 @@ function buildMasterSummarySheet(allMonthsData, targetSpreadsheet) {
   // Row 2: Subtitle
   matrix[1][0] = `Generated: ${new Date().toLocaleString()} | Synced Months: ${monthCount} | Total Unique Drivers Tracked: ${driverCount}`;
 
-  // Rows 3-5: Aggregate Top KPI Cards (Row 1 of Cards)
-  // Card 1: TOTAL FLEET DRIVER HOURS (Cols A:C)
+  // Rows 3-5: Aggregate Top KPI Cards
+  // Card 1: TOTAL FLEET DRIVER HOURS
   matrix[2][0] = 'TOTAL FLEET DRIVER HOURS (ALL MONTHS)';
   matrix[3][0] = monthCount > 0 ? `=SUM(C${startMonthRow}:C${endMonthRow})` : 0;
   matrix[4][0] = 'Total Active Road Hours';
 
-  // Card 2: STANDARD DISPATCH HOURS (Cols D:F)
+  // Card 2: STANDARD DISPATCH HOURS
   matrix[2][3] = 'TOTAL STANDARD DISPATCH HOURS';
   matrix[3][3] = monthCount > 0 ? `=SUM(D${startMonthRow}:D${endMonthRow})` : 0;
   matrix[4][3] = 'Calendar Base (4 Dispatchers)';
 
-  // Card 3: OVERTIME HOURS (Cols G:I)
+  // Card 3: OVERTIME HOURS
   matrix[2][6] = 'TOTAL OVERTIME DISPATCH HOURS';
   matrix[3][6] = monthCount > 0 ? `=SUM(E${startMonthRow}:E${endMonthRow})` : 0;
   matrix[4][6] = 'Total Extra Adjustments';
 
-  // Card 4: TOTAL DISPATCH HOURS (Cols J:L)
+  // Card 4: TOTAL DISPATCH HOURS
   matrix[2][9] = 'TOTAL DISPATCH LABOR HOURS';
   matrix[3][9] = monthCount > 0 ? `=SUM(F${startMonthRow}:F${endMonthRow})` : 0;
   matrix[4][9] = 'Standard + Overtime';
 
-  // Rows 6-8: Ratio Cards (Row 2 of Cards)
-  // Card 5: OVERALL FLEET DISPATCH RATIO (Cols A:D)
+  // Rows 6-8: Ratio Cards
+  // Card 5: OVERALL FLEET DISPATCH RATIO
   matrix[5][0] = 'OVERALL FLEET DISPATCH RATIO';
   matrix[6][0] = `=IF($A$4>0, $J$4/$A$4, 0)`;
   matrix[7][0] = 'Dispatch Hours per 1 Road Hour';
 
-  // Card 6: OVERALL SUPPORT MINS / ROAD HR (Cols E:H)
+  // Card 6: OVERALL SUPPORT MINS / ROAD HR
   matrix[5][4] = 'OVERALL SUPPORT MINS / ROAD HR';
   matrix[6][4] = `=$A$7*60`;
   matrix[7][4] = 'Minutes of Dispatch per 1 Road Hr';
 
-  // Card 7: OVERALL DRIVER LEVERAGE RATIO (Cols I:L)
+  // Card 7: OVERALL DRIVER LEVERAGE RATIO
   matrix[5][8] = 'OVERALL DRIVER LEVERAGE RATIO';
   matrix[6][8] = `=IF($J$4>0, $A$4/$J$4, 0)`;
   matrix[7][8] = 'Road Hours driven per 1 Dispatch Hr';
 
-  // Row 10: Section 1 Header: Month-over-Month Comparison Table
+  // Row 10: Section 1 Header
   matrix[9][0] = '1. MONTH-OVER-MONTH FLEET DISPATCH PERFORMANCE COMPARISON';
 
   // Row 11: Month Table Column Headers
@@ -125,17 +138,16 @@ function buildMasterSummarySheet(allMonthsData, targetSpreadsheet) {
       matrix[rowIdx][0] = `${m.monthName} ${m.year}`;
       matrix[rowIdx][1] = m.driverCount || (m.drivers ? m.drivers.length : 0);
 
-      // Check if target analysis sheet exists to link dynamic live formulas
       const targetSheet = ss.getSheetByName(tabTargetName) || ss.getSheetByName(`${m.monthName} - Analysis`);
       if (targetSheet) {
         const actualTab = targetSheet.getName();
-        matrix[rowIdx][2] = `='${actualTab}'!A4`; // Driver Hours
-        matrix[rowIdx][3] = `='${actualTab}'!C4`; // Standard Disp
-        matrix[rowIdx][4] = `='${actualTab}'!E4`; // Overtime
-        matrix[rowIdx][5] = `='${actualTab}'!F4`; // Total Disp
-        matrix[rowIdx][6] = `='${actualTab}'!A7`; // Ratio
-        matrix[rowIdx][7] = `='${actualTab}'!C7`; // Mins
-        matrix[rowIdx][8] = `='${actualTab}'!E7`; // Leverage
+        matrix[rowIdx][2] = `='${actualTab}'!A4`;
+        matrix[rowIdx][3] = `='${actualTab}'!C4`;
+        matrix[rowIdx][4] = `='${actualTab}'!E4`;
+        matrix[rowIdx][5] = `='${actualTab}'!F4`;
+        matrix[rowIdx][6] = `='${actualTab}'!A7`;
+        matrix[rowIdx][7] = `='${actualTab}'!C7`;
+        matrix[rowIdx][8] = `='${actualTab}'!E7`;
       } else {
         matrix[rowIdx][2] = m.totalDriverHours || 0;
         matrix[rowIdx][3] = m.standardDispatchHours || 0;
@@ -204,7 +216,7 @@ function buildMasterSummarySheet(allMonthsData, targetSpreadsheet) {
       matrix[drIdx][7] = `=IF(E${dr}>0, F${dr}/E${dr}, 0)`;
       matrix[drIdx][8] = `=IF(B${dr}>0, C${dr}/B${dr}, 0)`;
       matrix[drIdx][9] = `=IF(B${dr}>0, F${dr}/B${dr}, 0)`;
-      matrix[drIdx][10] = cd.monthsActive >= monthCount ? '⭐ Core Driver' : 'Active';
+      matrix[drIdx][10] = cd.monthsActive >= Math.max(monthCount - 1, 1) ? '⭐ Core Driver' : 'Active';
       matrix[drIdx][11] = `${cd.monthsActive} of ${monthCount} months`;
     }
 
@@ -224,10 +236,8 @@ function buildMasterSummarySheet(allMonthsData, targetSpreadsheet) {
     matrix[totDIdx][11] = '';
   }
 
-  // Write all matrix data in one fast batch
   sheet.getRange(1, 1, totalRowsNeeded, totalCols).setValues(matrix);
 
-  // Format and style Master Summary tab
   formatMasterSummarySheet(sheet, {
     monthCount: monthCount,
     startMonthRow: startMonthRow,
@@ -246,17 +256,46 @@ function buildMasterSummarySheet(allMonthsData, targetSpreadsheet) {
 
 /**
  * Aggregates all driver data across multiple months into cumulative totals.
+ * Intelligently merges single names (e.g. "Brian") into full names ("Brian Macancela").
  */
 function aggregateCumulativeDriverData(months) {
+  const isSummaryFn = (typeof isSummaryRowName === 'function') ? isSummaryRowName : (_isSummaryRowName || (() => false));
+  const normDriverFn = (typeof normalizeDriverName === 'function') ? normalizeDriverName : _normalizeDriverName;
+
+  // Pass 1: Build dynamic global full name mapping across all months
+  const globalFullNameMap = {};
+  for (const m of months) {
+    const drivers = m.drivers || [];
+    for (const d of drivers) {
+      const name = String(d.driverName || '').trim();
+      const parts = name.split(/\s+/);
+      if (parts.length >= 2 && !isSummaryFn(name)) {
+        const first = parts[0].toLowerCase();
+        if (!globalFullNameMap[first]) {
+          globalFullNameMap[first] = name;
+        }
+      }
+    }
+  }
+
+  // Pass 2: Aggregate driver records using canonical full names
   const driverMap = {};
 
   for (const m of months) {
     const drivers = m.drivers || [];
     for (const d of drivers) {
-      const key = d.driverName.toLowerCase().trim();
+      const rawName = String(d.driverName || '').trim();
+      if (!rawName || isSummaryFn(rawName)) continue;
+
+      const canonical = typeof normDriverFn === 'function' 
+        ? normDriverFn(rawName, globalFullNameMap)
+        : (globalFullNameMap[rawName.toLowerCase()] || rawName);
+
+      const key = canonical.toLowerCase().trim();
+
       if (!driverMap[key]) {
         driverMap[key] = {
-          driverName: d.driverName,
+          driverName: canonical,
           monthsActive: 0,
           totalHours: 0,
           totalTrips: 0,
@@ -299,7 +338,6 @@ function collectDataFromExistingAnalysisSheets(ss) {
       const parsed = parseMonthAndYear(monthPart);
       const schedule = calculateMonthlyDispatchHours(parsed.monthIndex, parsed.year);
 
-      // Read driver rows from sheet
       const lastRow = s.getLastRow();
       const drivers = [];
       let totalDriverHours = 0;
@@ -339,13 +377,13 @@ function collectDataFromExistingAnalysisSheets(ss) {
  * Styling and formatting engine for Master Summary sheet.
  */
 function formatMasterSummarySheet(sheet, cfg) {
-  const theme = (typeof CONFIG !== 'undefined' && CONFIG.THEME) ? CONFIG.THEME : {
+  const activeCfg = (typeof CONFIG !== 'undefined') ? CONFIG : _CONFIG_MS;
+  const theme = (activeCfg && activeCfg.THEME) ? activeCfg.THEME : {
     headerBg: '#1e293b',
     headerColor: '#ffffff',
     zebraBg: '#f1f5f9'
   };
 
-  // Row 1: Banner
   sheet.getRange('A1:L1').merge()
     .setBackground(theme.headerBg)
     .setFontColor(theme.headerColor)
@@ -355,7 +393,6 @@ function formatMasterSummarySheet(sheet, cfg) {
     .setVerticalAlignment('middle');
   sheet.setRowHeight(1, 38);
 
-  // Row 2: Subtitle
   sheet.getRange('A2:L2').merge()
     .setBackground('#334155')
     .setFontColor('#cbd5e1')
@@ -364,7 +401,6 @@ function formatMasterSummarySheet(sheet, cfg) {
     .setVerticalAlignment('middle');
   sheet.setRowHeight(2, 22);
 
-  // Row 3-5: Aggregate Cards (Row 1)
   sheet.getRange('A3:C3').merge().setValue('TOTAL FLEET DRIVER HOURS');
   sheet.getRange('A4:C4').merge();
   sheet.getRange('A5:C5').merge().setValue('All Synced Months Combined');
@@ -385,7 +421,6 @@ function formatMasterSummarySheet(sheet, cfg) {
   sheet.getRange('J5:L5').merge().setValue('Standard + Overtime');
   formatKpiCard(sheet, 'J3:L5', 'J4:L4', '#,##0.0 "hrs"', '#0f172a');
 
-  // Row 6-8: Aggregate Ratio Cards (Row 2)
   sheet.getRange('A6:D6').merge().setValue('OVERALL FLEET DISPATCH RATIO');
   sheet.getRange('A7:D7').merge();
   sheet.getRange('A8:D8').merge().setValue('Cumulative Dispatch Overhead Ratio');
@@ -408,7 +443,6 @@ function formatMasterSummarySheet(sheet, cfg) {
   sheet.setRowHeight(7, 32);
   sheet.setRowHeight(8, 18);
 
-  // Section 1 Header
   sheet.getRange('A10:L10').merge()
     .setBackground('#0f172a')
     .setFontColor('#ffffff')
@@ -417,7 +451,6 @@ function formatMasterSummarySheet(sheet, cfg) {
     .setHorizontalAlignment('left');
   sheet.setRowHeight(10, 26);
 
-  // Month Table Header
   sheet.getRange('A11:L11')
     .setBackground('#334155')
     .setFontColor('#ffffff')
@@ -450,7 +483,6 @@ function formatMasterSummarySheet(sheet, cfg) {
 
     monthDataRange.setBorder(true, true, true, true, true, true, '#e2e8f0', SpreadsheetApp.BorderStyle.SOLID);
 
-    // Total Month Row
     const totMRange = sheet.getRange(cfg.totalMonthRow, 1, 1, 12);
     totMRange.setBackground('#e2e8f0').setFontWeight('bold').setFontSize(9).setVerticalAlignment('middle');
     sheet.getRange(cfg.totalMonthRow, 1).setHorizontalAlignment('left');
@@ -468,7 +500,6 @@ function formatMasterSummarySheet(sheet, cfg) {
     sheet.setRowHeight(cfg.totalMonthRow, 26);
   }
 
-  // Section 2 Header
   sheet.getRange(cfg.sec2TitleRow, 1, 1, 12).merge()
     .setBackground('#0f172a')
     .setFontColor('#ffffff')
@@ -509,7 +540,6 @@ function formatMasterSummarySheet(sheet, cfg) {
 
     driverDataRange.setBorder(true, true, true, true, true, true, '#e2e8f0', SpreadsheetApp.BorderStyle.SOLID);
 
-    // Cumulative Driver Total Row
     const totDRange = sheet.getRange(cfg.totalDriverRow, 1, 1, 12);
     totDRange.setBackground('#e2e8f0').setFontWeight('bold').setFontSize(9).setVerticalAlignment('middle');
     sheet.getRange(cfg.totalDriverRow, 1).setHorizontalAlignment('left');
@@ -526,24 +556,22 @@ function formatMasterSummarySheet(sheet, cfg) {
     sheet.setRowHeight(cfg.totalDriverRow, 26);
   }
 
-  // Column Widths
-  sheet.setColumnWidth(1, 160); // Month / Driver Name
-  sheet.setColumnWidth(2, 100); // Active Drivers / Months Active
-  sheet.setColumnWidth(3, 120); // Driver Hours / Cumulative Hours
-  sheet.setColumnWidth(4, 120); // Standard Disp / % Share
-  sheet.setColumnWidth(5, 110); // Overtime / Allocated Disp
-  sheet.setColumnWidth(6, 120); // Total Disp / Trips
-  sheet.setColumnWidth(7, 120); // Dispatch Ratio / Trips per Driver Hr
-  sheet.setColumnWidth(8, 120); // Support Mins / Trips per Disp Hr
-  sheet.setColumnWidth(9, 120); // Leverage / Avg Monthly Hrs
-  sheet.setColumnWidth(10, 120); // Trips / Avg Monthly Trips
-  sheet.setColumnWidth(11, 110); // Trips/Disp / Status
-  sheet.setColumnWidth(12, 110); // Trips/Disp / Notes
+  sheet.setColumnWidth(1, 160);
+  sheet.setColumnWidth(2, 100);
+  sheet.setColumnWidth(3, 120);
+  sheet.setColumnWidth(4, 120);
+  sheet.setColumnWidth(5, 110);
+  sheet.setColumnWidth(6, 120);
+  sheet.setColumnWidth(7, 120);
+  sheet.setColumnWidth(8, 120);
+  sheet.setColumnWidth(9, 120);
+  sheet.setColumnWidth(10, 120);
+  sheet.setColumnWidth(11, 110);
+  sheet.setColumnWidth(12, 110);
 
   sheet.setFrozenRows(11);
 }
 
-// Node.js module export for testing
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     buildMasterSummarySheet,

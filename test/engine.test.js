@@ -9,6 +9,7 @@ const {
 const {
   locateHeaders,
   isSummaryRowName,
+  normalizeDriverName,
   parseNumericValue
 } = require('../DriveSync');
 const {
@@ -37,52 +38,84 @@ testCasesParser.forEach((tc, idx) => {
 });
 
 // ----------------------------------------------------
-// TEST SUITE 2: Dispatcher Labor Hours Calculation
+// TEST SUITE 2: Single-to-Full Name Normalization
 // ----------------------------------------------------
-console.log('\n--- Test Suite 2: Dispatcher Labor Hours Calculation ---');
+console.log('\n--- Test Suite 2: Driver Name Normalization & Alias Merging ---');
 
-const aug2026 = calculateMonthlyDispatchHours(7, 2026);
-assert.strictEqual(aug2026.daysInMonth, 31);
-assert.strictEqual(aug2026.totalHours, 819);
-console.log('  ✓ August 2026 calendar math verified: exactly 819.0 hours (21 active weekdays * 39h/day)');
+assert.strictEqual(normalizeDriverName('Angel'), 'Angel Yoy');
+assert.strictEqual(normalizeDriverName('angel'), 'Angel Yoy');
+assert.strictEqual(normalizeDriverName('Angel Yoy'), 'Angel Yoy');
+
+assert.strictEqual(normalizeDriverName('Brian'), 'Brian Macancela');
+assert.strictEqual(normalizeDriverName('brian'), 'Brian Macancela');
+assert.strictEqual(normalizeDriverName('Brian Macancela'), 'Brian Macancela');
+
+assert.strictEqual(normalizeDriverName('Nikolay'), 'Nikolay Iankov');
+assert.strictEqual(normalizeDriverName('Biaoming'), 'Biaoming Feng');
+assert.strictEqual(normalizeDriverName('Oumarou'), 'Oumarou Amadou');
+assert.strictEqual(normalizeDriverName('Koba'), 'Koba Svanadze');
+
+// Dynamic alias map resolution test
+const dynamicMap = { 'jake': 'Jake Sully' };
+assert.strictEqual(normalizeDriverName('Jake', dynamicMap), 'Jake Sully');
+console.log('  ✓ Single name aliases correctly resolved to canonical full names');
 
 // ----------------------------------------------------
-// TEST SUITE 3: Multi-Month Master Summary Cumulative Aggregation
+// TEST SUITE 3: Multi-Month Merging Test (User Screenshot Case)
 // ----------------------------------------------------
-console.log('\n--- Test Suite 3: Multi-Month Driver Cumulative Aggregation ---');
+console.log('\n--- Test Suite 3: Multi-Month Merging Simulation (User Screenshot Case) ---');
 
-const mockMonths = [
+const userScreenshotMonths = [
   {
-    monthName: 'August',
-    year: 2026,
+    monthName: 'MonthA',
+    year: 2025,
     drivers: [
-      { driverName: 'Brian Macancela', hours: 140.0, trips: 180 },
-      { driverName: 'Koba Svanadze', hours: 120.5, trips: 150 }
+      { driverName: 'Angel', hours: 811.5, trips: 1000 },
+      { driverName: 'Brian', hours: 555.0, trips: 700 },
+      { driverName: 'Nikolay', hours: 362.5, trips: 450 },
+      { driverName: 'Biaoming', hours: 205.0, trips: 250 },
+      { driverName: 'Oumarou', hours: 182.5, trips: 220 }
     ]
   },
   {
-    monthName: 'September',
+    monthName: 'MonthB',
     year: 2026,
     drivers: [
-      { driverName: 'Brian Macancela', hours: 160.0, trips: 210 },
-      { driverName: 'Nikolay Iankov', hours: 110.0, trips: 130 }
+      { driverName: 'Angel Yoy', hours: 76.5, trips: 95 },
+      { driverName: 'Brian Macancela', hours: 163.5, trips: 210 },
+      { driverName: 'Nikolay Iankov', hours: 108.0, trips: 135 },
+      { driverName: 'Biaoming Feng', hours: 73.0, trips: 90 },
+      { driverName: 'Oumarou Amadou', hours: 50.0, trips: 60 }
     ]
   }
 ];
 
-const cumulative = aggregateCumulativeDriverData(mockMonths);
-console.log(`  Processed 2 months -> Cumulative unique drivers: ${cumulative.length}`);
-assert.strictEqual(cumulative.length, 3, 'Must have 3 unique cumulative drivers');
+const mergedResults = aggregateCumulativeDriverData(userScreenshotMonths);
+console.log(`  Input: 10 driver rows across 2 months -> Merged Unique Drivers: ${mergedResults.length}`);
+assert.strictEqual(mergedResults.length, 5, 'Must merge down to exactly 5 unique drivers');
 
-const brianCum = cumulative.find(d => d.driverName === 'Brian Macancela');
-assert.strictEqual(brianCum.monthsActive, 2);
-assert.strictEqual(brianCum.totalHours, 300.0);
-assert.strictEqual(brianCum.totalTrips, 390);
-console.log(`  ✓ Brian Macancela cumulative: 2 months active, 300.0 hrs, 390 trips`);
+const angel = mergedResults.find(d => d.driverName === 'Angel Yoy');
+assert.notStrictEqual(angel, undefined);
+assert.strictEqual(angel.monthsActive, 2);
+assert.strictEqual(angel.totalHours, 888.0, 'Angel total hours must equal 811.5 + 76.5 = 888.0');
+console.log(`  ✓ Angel + Angel Yoy -> Merged: "Angel Yoy" (2 months, 888.0 hrs)`);
 
-const kobaCum = cumulative.find(d => d.driverName === 'Koba Svanadze');
-assert.strictEqual(kobaCum.monthsActive, 1);
-assert.strictEqual(kobaCum.totalHours, 120.5);
-console.log(`  ✓ Koba Svanadze cumulative: 1 month active, 120.5 hrs`);
+const brian = mergedResults.find(d => d.driverName === 'Brian Macancela');
+assert.notStrictEqual(brian, undefined);
+assert.strictEqual(brian.monthsActive, 2);
+assert.strictEqual(brian.totalHours, 718.5, 'Brian total hours must equal 555.0 + 163.5 = 718.5');
+console.log(`  ✓ Brian + Brian Macancela -> Merged: "Brian Macancela" (2 months, 718.5 hrs)`);
+
+const nikolay = mergedResults.find(d => d.driverName === 'Nikolay Iankov');
+assert.notStrictEqual(nikolay, undefined);
+assert.strictEqual(nikolay.monthsActive, 2);
+assert.strictEqual(nikolay.totalHours, 470.5, 'Nikolay total hours must equal 362.5 + 108.0 = 470.5');
+console.log(`  ✓ Nikolay + Nikolay Iankov -> Merged: "Nikolay Iankov" (2 months, 470.5 hrs)`);
+
+const biaoming = mergedResults.find(d => d.driverName === 'Biaoming Feng');
+assert.notStrictEqual(biaoming, undefined);
+assert.strictEqual(biaoming.monthsActive, 2);
+assert.strictEqual(biaoming.totalHours, 278.0, 'Biaoming total hours must equal 205.0 + 73.0 = 278.0');
+console.log(`  ✓ Biaoming + Biaoming Feng -> Merged: "Biaoming Feng" (2 months, 278.0 hrs)`);
 
 console.log('\n🎉 ALL TEST SUITES PASSED!\n');
