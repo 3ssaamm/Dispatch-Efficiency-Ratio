@@ -59,10 +59,10 @@ function initSettingsSheet() {
   sheet.getRange('B5:D5').merge().setValue(CONFIG.WORKING_TIME_SPREADSHEET_URL);
 
   sheet.getRange('A6').setValue('Active Dispatchers:').setFontWeight('bold');
-  sheet.getRange('B6:D6').merge().setValue('Muhammad, Mariam (Works Sat, Thu OFF), Nour (Nourween)');
+  sheet.getRange('B6:D6').merge().setValue('Muhammad, Mariam (Works Sat, Thu OFF), Nourween (2026), Nour (Fixed 9h)');
 
   sheet.getRange('A7').setValue('Excluded Staff:').setFontWeight('bold');
-  sheet.getRange('B7:D7').merge().setValue('Mohanad, Abdulrahman');
+  sheet.getRange('B7:D7').merge().setValue('Mohanad, Abdulrahman, Fares (Disregarded)');
 
   // Section 2: Dispatcher Shift Schedule
   sheet.getRange('A9:D9').merge()
@@ -85,7 +85,8 @@ function initSettingsSheet() {
   const shiftData = [
     ['Muhammad', '10.0 hrs', 'Mon, Tue, Wed, Thu, Fri', 'Sat, Sun'],
     ['Mariam', '10.0 hrs', 'Mon, Tue, Wed, Fri, Sat', 'Thursday, Sun'],
-    ['Nour (Nourween)', '9.0 hrs', 'Mon, Tue, Wed, Thu, Fri', 'Sat, Sun']
+    ['Nourween', '10.0 hrs', 'Mon, Tue, Wed, Thu, Fri (Active 2026)', 'Sat, Sun'],
+    ['Nour', '9.0 hrs', 'Mon, Tue, Wed, Thu, Fri (Fixed)', 'Sat, Sun']
   ];
 
   for (let r = 0; r < shiftData.length; r++) {
@@ -96,17 +97,17 @@ function initSettingsSheet() {
   }
 
   // Section 3: Daily Fleet Labor Breakdown
-  sheet.getRange('A15:D15').merge()
+  sheet.getRange('A16:D16').merge()
     .setValue('3. DAILY DISPATCH LABOR HOURS PER DAY OF WEEK')
     .setBackground('#334155')
     .setFontColor('#ffffff')
     .setFontWeight('bold')
     .setFontSize(10);
-  sheet.setRowHeight(15, 24);
+  sheet.setRowHeight(16, 24);
 
   const daysHeader = ['Day of Week', 'Active Dispatchers', 'Daily Total Hours', 'Notes'];
   for (let c = 0; c < 4; c++) {
-    sheet.getRange(16, c + 1).setValue(daysHeader[c])
+    sheet.getRange(17, c + 1).setValue(daysHeader[c])
       .setBackground('#475569')
       .setFontColor('#ffffff')
       .setFontWeight('bold')
@@ -114,18 +115,18 @@ function initSettingsSheet() {
   }
 
   const dailyTotals = [
-    ['Monday', '3 (Muhammad, Mariam, Nour)', '29.0 hrs', '10 + 10 + 9'],
-    ['Tuesday', '3 (Muhammad, Mariam, Nour)', '29.0 hrs', '10 + 10 + 9'],
-    ['Wednesday', '3 (Muhammad, Mariam, Nour)', '29.0 hrs', '10 + 10 + 9'],
-    ['Thursday', '2 (Muhammad, Nour)', '19.0 hrs', '10 + 9 (Mariam OFF)'],
-    ['Friday', '3 (Muhammad, Mariam, Nour)', '29.0 hrs', '10 + 10 + 9'],
-    ['Saturday', '1 (Mariam)', '10.0 hrs', 'Mariam 10h (Muhammad & Nour OFF)'],
+    ['Monday', '4 (Muhammad, Mariam, Nourween, Nour)', '39.0 hrs', '10 + 10 + 10 + 9'],
+    ['Tuesday', '4 (Muhammad, Mariam, Nourween, Nour)', '39.0 hrs', '10 + 10 + 10 + 9'],
+    ['Wednesday', '4 (Muhammad, Mariam, Nourween, Nour)', '39.0 hrs', '10 + 10 + 10 + 9'],
+    ['Thursday', '3 (Muhammad, Nourween, Nour)', '29.0 hrs', '10 + 0 + 10 + 9 (Mariam OFF)'],
+    ['Friday', '4 (Muhammad, Mariam, Nourween, Nour)', '39.0 hrs', '10 + 10 + 10 + 9'],
+    ['Saturday', '1 (Mariam)', '10.0 hrs', 'Mariam 10h (Others OFF)'],
     ['Sunday', '0', '0.0 hrs', 'Fleet OFF']
   ];
 
   for (let r = 0; r < dailyTotals.length; r++) {
     for (let c = 0; c < 4; c++) {
-      sheet.getRange(17 + r, c + 1).setValue(dailyTotals[r][c])
+      sheet.getRange(18 + r, c + 1).setValue(dailyTotals[r][c])
         .setHorizontalAlignment(c === 0 ? 'left' : 'center');
     }
   }

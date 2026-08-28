@@ -3,7 +3,7 @@
  * Creates a dedicated '🕒 Dispatcher Hours Audit' tab in Google Sheets
  * to verify and audit exact working hours and overtime fetched from the timesheet
  * (Muhammad, Mariam, Nourween) + fixed schedule (Nour 9h Mon-Fri).
- * Zero hours logged = 0.0 hrs (dispatcher was not active/working).
+ * Computes individual cumulative totals across all months in the Total row.
  */
 
 /**
@@ -86,6 +86,12 @@ function buildDispatcherAuditSheet(allMonthsData, targetSpreadsheet) {
   matrix[10][9] = 'Excluded Staff Hours';
   matrix[10][10] = 'Verification Status';
 
+  // Accumulators for per-dispatcher totals across all months
+  let cumMuhammadWT = 0, cumMuhammadOT = 0;
+  let cumMariamWT = 0, cumMariamOT = 0;
+  let cumNourweenWT = 0, cumNourweenOT = 0;
+  let cumNourHours = 0;
+
   // Rows 12+: Monthly Breakdown Rows
   if (monthCount > 0) {
     for (let i = 0; i < monthCount; i++) {
@@ -100,10 +106,12 @@ function buildDispatcherAuditSheet(allMonthsData, targetSpreadsheet) {
       
       if (laborInfo.tabFound) {
         matrix[rowIdx][1] = `✅ Timesheet ("${laborInfo.tabName}")`;
+      } else if (laborInfo.source === 'no_timesheet') {
+        matrix[rowIdx][1] = '❌ No Timesheet (0.0 hrs)';
       } else if (laborInfo.permissionError) {
-        matrix[rowIdx][1] = '🔒 Permission Restricted (Calendar Fallback)';
+        matrix[rowIdx][1] = '🔒 Permission Restricted';
       } else {
-        matrix[rowIdx][1] = '📅 Calendar Schedule Fallback';
+        matrix[rowIdx][1] = '📅 Calendar Fallback';
       }
 
       // Find individual staff
@@ -113,17 +121,45 @@ function buildDispatcherAuditSheet(allMonthsData, targetSpreadsheet) {
       const nour = laborInfo.fixedStaff.find(s => s.name.toLowerCase() === 'nour');
 
       if (laborInfo.tabFound) {
-        // If timesheet was read, zero hours means the dispatcher was NOT working
-        matrix[rowIdx][2] = muhammad ? `${muhammad.regularHours.toFixed(1)} WT + ${muhammad.overtimeHours.toFixed(1)} OT` : '0.0 hrs (Not Working)';
-        matrix[rowIdx][3] = mariam ? `${mariam.regularHours.toFixed(1)} WT + ${mariam.overtimeHours.toFixed(1)} OT` : '0.0 hrs (Not Working)';
-        matrix[rowIdx][4] = nourween ? `${nourween.regularHours.toFixed(1)} WT + ${nourween.overtimeHours.toFixed(1)} OT` : '0.0 hrs (Not Working)';
-        matrix[rowIdx][5] = nour ? `${nour.regularHours.toFixed(1)} hrs (${nour.notes})` : '0.0 hrs (Not Working)';
+        // Muhammad
+        if (muhammad && (muhammad.regularHours > 0 || muhammad.overtimeHours > 0)) {
+          matrix[rowIdx][2] = `${muhammad.regularHours.toFixed(1)} WT + ${muhammad.overtimeHours.toFixed(1)} OT`;
+          cumMuhammadWT += muhammad.regularHours;
+          cumMuhammadOT += muhammad.overtimeHours;
+        } else {
+          matrix[rowIdx][2] = '0.0 hrs (Not Working)';
+        }
+
+        // Mariam
+        if (mariam && (mariam.regularHours > 0 || mariam.overtimeHours > 0)) {
+          matrix[rowIdx][3] = `${mariam.regularHours.toFixed(1)} WT + ${mariam.overtimeHours.toFixed(1)} OT`;
+          cumMariamWT += mariam.regularHours;
+          cumMariamOT += mariam.overtimeHours;
+        } else {
+          matrix[rowIdx][3] = '0.0 hrs (Not Working)';
+        }
+
+        // Nourween
+        if (nourween && (nourween.regularHours > 0 || nourween.overtimeHours > 0)) {
+          matrix[rowIdx][4] = `${nourween.regularHours.toFixed(1)} WT + ${nourween.overtimeHours.toFixed(1)} OT`;
+          cumNourweenWT += nourween.regularHours;
+          cumNourweenOT += nourween.overtimeHours;
+        } else {
+          matrix[rowIdx][4] = '0.0 hrs (Not Working)';
+        }
+
+        // Nour
+        if (nour && nour.regularHours > 0) {
+          matrix[rowIdx][5] = `${nour.regularHours.toFixed(1)} hrs (${nour.notes})`;
+          cumNourHours += nour.regularHours;
+        } else {
+          matrix[rowIdx][5] = '0.0 hrs (Not Working)';
+        }
       } else {
-        // Calendar Fallback
-        matrix[rowIdx][2] = '10h/day Mon-Fri (Sched)';
-        matrix[rowIdx][3] = '10h/day Mon-Wed,Fri,Sat (Sched)';
-        matrix[rowIdx][4] = '10h/day Mon-Fri (Sched)';
-        matrix[rowIdx][5] = nour ? `${nour.regularHours.toFixed(1)} hrs (${nour.notes})` : '9h/day Mon-Fri';
+        matrix[rowIdx][2] = '0.0 hrs (No Timesheet)';
+        matrix[rowIdx][3] = '0.0 hrs (No Timesheet)';
+        matrix[rowIdx][4] = '0.0 hrs (No Timesheet)';
+        matrix[rowIdx][5] = '0.0 hrs (No Timesheet)';
       }
 
       matrix[rowIdx][6] = laborInfo.standardHours;
@@ -138,6 +174,8 @@ function buildDispatcherAuditSheet(allMonthsData, targetSpreadsheet) {
 
       if (laborInfo.tabFound) {
         matrix[rowIdx][10] = '✅ Verified from Timesheet';
+      } else if (laborInfo.source === 'no_timesheet') {
+        matrix[rowIdx][10] = 'No Timesheet Found (0 hrs)';
       } else if (laborInfo.permissionError) {
         matrix[rowIdx][10] = '⚠️ Move Timesheet to Drive Folder to sync';
       } else {
@@ -145,14 +183,14 @@ function buildDispatcherAuditSheet(allMonthsData, targetSpreadsheet) {
       }
     }
 
-    // Total Row
+    // Total Row: Calculate individual dispatcher totals!
     const totIdx = totalAuditRow - 1;
     matrix[totIdx][0] = 'TOTAL FLEET DISPATCH LABOR';
     matrix[totIdx][1] = `${monthCount} months`;
-    matrix[totIdx][2] = 'Muhammad';
-    matrix[totIdx][3] = 'Mariam';
-    matrix[totIdx][4] = 'Nourween';
-    matrix[totIdx][5] = 'Nour (9h Fixed)';
+    matrix[totIdx][2] = `${cumMuhammadWT.toFixed(1)} WT + ${cumMuhammadOT.toFixed(1)} OT (${(cumMuhammadWT + cumMuhammadOT).toFixed(1)}h)`;
+    matrix[totIdx][3] = `${cumMariamWT.toFixed(1)} WT + ${cumMariamOT.toFixed(1)} OT (${(cumMariamWT + cumMariamOT).toFixed(1)}h)`;
+    matrix[totIdx][4] = `${cumNourweenWT.toFixed(1)} WT + ${cumNourweenOT.toFixed(1)} OT (${(cumNourweenWT + cumNourweenOT).toFixed(1)}h)`;
+    matrix[totIdx][5] = `${cumNourHours.toFixed(1)} hrs`;
     matrix[totIdx][6] = `=SUM(G${startAuditRow}:G${endAuditRow})`;
     matrix[totIdx][7] = `=SUM(H${startAuditRow}:H${endAuditRow})`;
     matrix[totIdx][8] = `=SUM(I${startAuditRow}:I${endAuditRow})`;
@@ -338,10 +376,10 @@ function formatDispatcherAuditSheet(sheet, cfg) {
   // Column Widths
   sheet.setColumnWidth(1, 150); // Month / Name
   sheet.setColumnWidth(2, 220); // Source / Role
-  sheet.setColumnWidth(3, 190); // Muhammad / Source
+  sheet.setColumnWidth(3, 210); // Muhammad / Source
   sheet.setColumnWidth(4, 210); // Mariam / Shift
-  sheet.setColumnWidth(5, 190); // Nourween / Days
-  sheet.setColumnWidth(6, 210); // Nour / Off Days
+  sheet.setColumnWidth(5, 210); // Nourween / Days
+  sheet.setColumnWidth(6, 180); // Nour / Off Days
   sheet.setColumnWidth(7, 130); // Regular WT
   sheet.setColumnWidth(8, 130); // Overtime OT
   sheet.setColumnWidth(9, 140); // Total Dispatch

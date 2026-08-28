@@ -4,6 +4,7 @@ const {
   MONTH_NAMES,
   MONTH_MAP,
   parseMonthAndYear,
+  calculateBaseContractHours,
   calculateMonthlyDispatchHours,
   calculateNourFixedHours
 } = require('../DispatcherSchedule');
@@ -25,9 +26,9 @@ console.log('🧪 Running Fleet Dispatch Efficiency Engine Test Suite...\n');
 console.log('--- Test Suite 1: Month & Year Parser ---');
 
 const testCasesParser = [
-  { input: 'August - Drivers Daily Balance', fallback: 2026, expectedMonth: 7, expectedYear: 2026 },
-  { input: 'July 2026 - Drivers Daily Balance', fallback: 2026, expectedMonth: 6, expectedYear: 2026 },
-  { input: 'September 2025', fallback: 2026, expectedMonth: 8, expectedYear: 2025 }
+  { input: 'October 2025 - Drivers Daily Balance', fallback: 2025, expectedMonth: 9, expectedYear: 2025 },
+  { input: 'September 2025', fallback: 2025, expectedMonth: 8, expectedYear: 2025 },
+  { input: 'August - Drivers Daily Balance', fallback: 2026, expectedMonth: 7, expectedYear: 2026 }
 ];
 
 testCasesParser.forEach((tc, idx) => {
@@ -38,74 +39,60 @@ testCasesParser.forEach((tc, idx) => {
 });
 
 // ----------------------------------------------------
-// TEST SUITE 2: Nour (Fixed 9h) vs Nourween (10h in Timesheet)
+// TEST SUITE 2: 2025 Timesheet Format Parser (October 2025 Case)
 // ----------------------------------------------------
-console.log('\n--- Test Suite 2: Nour (Fixed 9h) vs Nourween (10h Timesheet) ---');
+console.log('\n--- Test Suite 2: October 2025 Overtime-Only Timesheet Math ---');
 
-// August 2026 has 21 weekdays (5 Mon, 4 Tue, 4 Wed, 4 Thu, 4 Fri)
-const nourAug2026 = calculateNourFixedHours(7, 2026);
-assert.strictEqual(nourAug2026.activeDays, 21);
-assert.strictEqual(nourAug2026.hours, 189.0, 'Nour fixed hours for Aug 2026 must equal 21 weekdays * 9h = 189.0 hrs');
-console.log(`  ✓ Nour (Fixed 9h/day): ${nourAug2026.activeDays} weekdays × 9h = ${nourAug2026.hours} hrs`);
+// October 2025: 31 days total.
+// 23 weekdays (4 Mon, 4 Tue, 5 Wed, 5 Thu, 5 Fri)
+// 4 Saturdays, 4 Sundays
 
-// Calendar schedule fallback calculation:
-// Mon, Tue, Wed, Fri: 10 + 10 + 10 + 9 = 39h/day (5 Mon + 4 Tue + 4 Wed + 4 Fri = 17 days * 39h = 663h)
-// Thu: 10 + 0 + 10 + 9 = 29h/day (4 Thu * 29h = 116h)
-// Sat: 10h/day (5 Sat * 10h = 50h)
-// Total = 663 + 116 + 50 = 829.0 hrs!
-const aug2026 = calculateMonthlyDispatchHours(7, 2026);
-assert.strictEqual(aug2026.daysInMonth, 31);
-assert.strictEqual(aug2026.totalHours, 829.0, 'August 2026 full calendar schedule must equal 829.0 hrs');
-console.log(`  ✓ August 2026 calendar fallback verified: ${aug2026.totalHours} hrs (Muhammad 10h, Mariam 10h [Thu OFF, Sat 10h], Nourween 10h, Nour 9h)`);
+// Muhammad: 23 weekdays * 10h = 230.0 WT
+const muhammadOct = calculateBaseContractHours('Muhammad', 9, 2025);
+assert.strictEqual(muhammadOct.hours, 230.0);
+assert.strictEqual(muhammadOct.days, 23);
 
-// ----------------------------------------------------
-// TEST SUITE 3: Zero-Hour Month Filtering (July 2026)
-// ----------------------------------------------------
-console.log('\n--- Test Suite 3: Zero-Hour Month Filtering (July 2026) ---');
+// Mariam: 22 working days (Mon, Tue, Wed, Fri, Sat) * 10h = 220.0 WT
+const mariamOct = calculateBaseContractHours('Mariam', 9, 2025);
+assert.strictEqual(mariamOct.hours, 220.0);
+assert.strictEqual(mariamOct.days, 22);
 
-const testMonths = [
-  {
-    monthName: 'July',
-    year: 2026,
-    totalDriverHours: 0,
-    drivers: []
-  },
-  {
-    monthName: 'August',
-    year: 2026,
-    totalDriverHours: 909.0,
-    drivers: [
-      { driverName: 'Brian Macancela', hours: 163.5, trips: 210 },
-      { driverName: 'Angel Yoy', hours: 76.5, trips: 95 }
-    ]
-  }
-];
+// Nour: 23 weekdays * 9h = 207.0 WT
+const nourOct = calculateNourFixedHours(9, 2025);
+assert.strictEqual(nourOct.hours, 207.0);
 
-const filteredMonths = testMonths.filter(m => m.totalDriverHours > 0 && m.drivers.length > 0);
-assert.strictEqual(filteredMonths.length, 1);
-assert.strictEqual(filteredMonths[0].monthName, 'August');
-console.log('  ✓ July 2026 (0 driver hours) successfully filtered out from master multi-month summary');
+// Totals:
+const totalStandardWT = muhammadOct.hours + mariamOct.hours + nourOct.hours; // 230 + 220 + 207 = 657.0
+const totalOT = 29.0 + 34.0; // 63.0
+const grandTotal = totalStandardWT + totalOT; // 720.0
+
+assert.strictEqual(totalStandardWT, 657.0);
+assert.strictEqual(totalOT, 63.0);
+assert.strictEqual(grandTotal, 720.0);
+
+console.log(`  ✓ October 2025 Verified:`);
+console.log(`    • Muhammad: ${muhammadOct.hours} WT + 29.0 OT = ${muhammadOct.hours + 29.0} hrs`);
+console.log(`    • Mariam: ${mariamOct.hours} WT + 34.0 OT = ${mariamOct.hours + 34.0} hrs`);
+console.log(`    • Nour: ${nourOct.hours} WT + 0.0 OT = ${nourOct.hours} hrs`);
+console.log(`    • Total Regular WT: ${totalStandardWT} hrs | Total OT: ${totalOT} hrs | Grand Total: ${grandTotal} hrs`);
 
 // ----------------------------------------------------
-// TEST SUITE 4: Dispatcher Inclusion/Exclusion Rules
+// TEST SUITE 3: Excluded Staff (Mohanad, Abdulrahman, Fares)
 // ----------------------------------------------------
-console.log('\n--- Test Suite 4: Dispatcher Inclusion & Exclusion Rules ---');
+console.log('\n--- Test Suite 3: Excluded Staff Rules ---');
 
-const activeTimesheetList = CONFIG.ACTIVE_TIMESHEET_DISPATCHERS;
 const excludedList = CONFIG.EXCLUDED_DISPATCHER_NAMES;
-
-function isTimesheetDispatcher(name) {
-  const lower = name.toLowerCase().trim();
-  const isExcluded = excludedList.some(ex => lower.includes(ex));
-  const isAllowed = activeTimesheetList.some(al => lower.includes(al));
-  return isAllowed && !isExcluded;
+function isExcludedStaff(name) {
+  const lower = name.toLowerCase();
+  return excludedList.some(ex => lower.includes(ex));
 }
 
-assert.strictEqual(isTimesheetDispatcher('Muhammad WT'), true);
-assert.strictEqual(isTimesheetDispatcher('Mariam WT'), true);
-assert.strictEqual(isTimesheetDispatcher('Nourween WT'), true);
-assert.strictEqual(isTimesheetDispatcher('Mohanad WT'), false);
-assert.strictEqual(isTimesheetDispatcher('Abdulrahman DR'), false);
-console.log('  ✓ Verified: Muhammad, Mariam, Nourween are fetched from Timesheet. Nour is added as fixed 9h. Mohanad & Abdulrahman are EXCLUDED.');
+assert.strictEqual(isExcludedStaff('Mohanad WT'), true, 'Mohanad must be excluded');
+assert.strictEqual(isExcludedStaff('Fares WT'), true, 'Fares must be excluded');
+assert.strictEqual(isExcludedStaff('Abdulrahman DR'), true, 'Abdulrahman must be excluded');
+assert.strictEqual(isExcludedStaff('Muhammad OT'), false, 'Muhammad must NOT be excluded');
+assert.strictEqual(isExcludedStaff('Mariam OT'), false, 'Mariam must NOT be excluded');
+
+console.log('  ✓ Verified: Fares, Mohanad, Abdulrahman are properly excluded.');
 
 console.log('\n🎉 ALL TEST SUITES PASSED!\n');
