@@ -1,8 +1,8 @@
 /**
  * @fileoverview Sheet builder for monthly Fleet Dispatch Efficiency Analysis.
  * Creates/refreshes compact monthly tabs (e.g. 'August 2026', 'September 2025')
- * with top KPI cards, verified timesheet/calendar dispatch hours, dynamic formulas,
- * driver allocation table, and premium styling.
+ * with top KPI cards, 20h operating window & real-time concurrency metrics,
+ * dynamic formulas, driver allocation table, and premium styling.
  */
 
 // Node.js fallback import for testing
@@ -21,21 +21,19 @@ if (typeof require !== 'undefined') {
 
 /**
  * Builds or refreshes the compact monthly tab for a given month dataset.
- * e.g. 'August 2026', 'July 2026' (without unnecessary '- Analysis' text).
  * 
  * @param {Object} monthData - Output bundle from extractDriverDataFromSummary
- * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} [targetSpreadsheet] - Optional target sheet
+ * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} [targetSpreadsheet]
  * @returns {GoogleAppsScript.Spreadsheet.Sheet}
  */
 function buildMonthlyAnalysisSheet(monthData, targetSpreadsheet) {
   const ss = targetSpreadsheet || SpreadsheetApp.getActiveSpreadsheet();
   const monthName = monthData.monthName;
   const year = monthData.year;
-  const tabName = `${monthName} ${year}`; // Clean, concise tab name (e.g. "August 2026")
+  const tabName = `${monthName} ${year}`;
 
   let sheet = ss.getSheetByName(tabName);
   
-  // Look for legacy '- Analysis' tab names to reuse and rename
   if (!sheet) sheet = ss.getSheetByName(`${monthName} ${year} - Analysis`);
   if (!sheet) sheet = ss.getSheetByName(`${monthName} - Analysis`);
   if (!sheet) sheet = ss.getSheetByName(monthName);
@@ -54,7 +52,6 @@ function buildMonthlyAnalysisSheet(monthData, targetSpreadsheet) {
     sheet = ss.insertSheet(tabName);
   }
 
-  // Fetch verified timesheet hours (Muhammad, Mariam, Nourween) + fixed Nour (9h) or fallback
   const fetcherFn = (typeof fetchDispatcherHoursFromTimesheet === 'function') 
     ? fetchDispatcherHoursFromTimesheet 
     : (_fetchDispatcherHoursFromTimesheet || _calculateMonthlyDispatchHours);
@@ -62,17 +59,21 @@ function buildMonthlyAnalysisSheet(monthData, targetSpreadsheet) {
   const dispatchLabor = fetcherFn(monthData.monthIndex, year);
   const standardDispatchHours = dispatchLabor.standardHours || dispatchLabor.totalHours || 0;
   const overtimeHours = dispatchLabor.overtimeHours || 0;
+  const daysInMonth = new Date(year, monthData.monthIndex + 1, 0).getDate();
+
   const laborSourceText = (dispatchLabor.source === 'timesheet') 
-    ? 'Timesheet (Muhammad, Mariam, Nourween) + Fixed Nour (9h)' 
+    ? 'Timesheet (Muhammad, Mariam, Nourween, Mohanad) + Fixed Nour (9h)' 
+    : (dispatchLabor.source === 'no_timesheet')
+    ? 'No Timesheet Found (0.0 hrs)'
     : `Calendar Schedule (Muhammad 10h, Mariam 10h [Thu OFF, Sat 10h], Nourween 10h, Nour 9h)`;
 
   const drivers = monthData.drivers || [];
   const driverCount = drivers.length;
-  const startDataRow = 11;
+  const startDataRow = 14;
   const endDataRow = startDataRow + Math.max(driverCount - 1, 0);
   const totalRow = endDataRow + 1;
 
-  const totalRowsNeeded = Math.max(totalRow + 3, 25);
+  const totalRowsNeeded = Math.max(totalRow + 3, 28);
   const totalCols = 7;
   const matrix = Array.from({ length: totalRowsNeeded }, () => Array(totalCols).fill(''));
 
@@ -86,7 +87,7 @@ function buildMonthlyAnalysisSheet(monthData, targetSpreadsheet) {
     matrix[1][0] = `Generated: ${new Date().toLocaleString()} | Source: ${monthData.fileName} | Dispatch Labor: ${laborSourceText}`;
   }
 
-  // Row 3-5: Top KPI Cards
+  // Row 3-5: Top Cumulative Labor KPI Cards
   // Card 1: TOTAL FLEET DRIVER HOURS (Cols A:B)
   matrix[2][0] = 'TOTAL FLEET DRIVER HOURS';
   matrix[3][0] = driverCount > 0 ? `=SUM(B${startDataRow}:B${endDataRow})` : 0;
@@ -107,11 +108,11 @@ function buildMonthlyAnalysisSheet(monthData, targetSpreadsheet) {
   matrix[3][5] = `=$C$4+$E$4`;
   matrix[4][5] = 'Standard + Overtime';
 
-  // Row 6-8: Ratio KPI Cards
+  // Row 6-8: Total Labor Overhead Ratio Cards
   // Card 5: FLEET DISPATCH RATIO (Cols A:B)
   matrix[5][0] = 'FLEET DISPATCH RATIO (OVERHEAD)';
   matrix[6][0] = `=IF($A$4>0, $F$4/$A$4, 0)`;
-  matrix[7][0] = 'Dispatch Hours / Driver Hour';
+  matrix[7][0] = 'Total Dispatch Hrs / Driver Road Hr';
 
   // Card 6: SUPPORT MINS / ROAD HOUR (Cols C:D)
   matrix[5][2] = 'SUPPORT MINS / ROAD HOUR';
@@ -123,19 +124,35 @@ function buildMonthlyAnalysisSheet(monthData, targetSpreadsheet) {
   matrix[6][4] = `=IF($F$4>0, $A$4/$F$4, 0)`;
   matrix[7][4] = 'Driver Road Hours per 1 Dispatch Hr';
 
-  // Row 9: Section Divider
-  matrix[8][0] = 'DRIVER PERFORMANCE & DISPATCH LABOR ALLOCATION';
+  // Row 9-11: 20-Hour Operating Window & Real-Time Concurrency KPI Cards
+  // Card 8: EST. CONCURRENT CARS ON ROAD (Cols A:B)
+  matrix[8][0] = 'EST. CONCURRENT CARS ON ROAD';
+  matrix[9][0] = `=IF($A$4>0, ($A$4/${daysInMonth})/20, 0)`;
+  matrix[10][0] = `Active Cars in 20h Window (${daysInMonth} days)`;
 
-  // Row 10: Table Headers
-  matrix[9][0] = 'Driver Name';
-  matrix[9][1] = 'Driver Active Hours';
-  matrix[9][2] = '% Share of Fleet Hours';
-  matrix[9][3] = 'Allocated Dispatch Hours';
-  matrix[9][4] = 'Completed Trips';
-  matrix[9][5] = 'Trips / Driver Hour';
-  matrix[9][6] = 'Trips / Dispatch Hour';
+  // Card 9: LIVE CARS / ON-DUTY DISPATCHER (Cols C:D)
+  matrix[8][2] = 'LIVE CARS / ON-DUTY DISPATCHER';
+  matrix[9][2] = `=IF($A$10>0, $A$10/1.95, 0)`;
+  matrix[10][2] = 'Real-Time Load (~1.95 Concurrent Disp)';
 
-  // Rows 11+ : Data Rows
+  // Card 10: DESK CAPACITY UTILIZATION (Cols E:G)
+  matrix[8][4] = 'DESK CAPACITY UTILIZATION';
+  matrix[9][4] = `=IF($C$10>0, $C$10/4.0, 0)`;
+  matrix[10][4] = 'Vs 1:4 Optimal Benchmark (4 cars/disp)';
+
+  // Row 12: Section Divider
+  matrix[11][0] = 'DRIVER PERFORMANCE & DISPATCH LABOR ALLOCATION';
+
+  // Row 13: Table Headers
+  matrix[12][0] = 'Driver Name';
+  matrix[12][1] = 'Driver Active Hours';
+  matrix[12][2] = '% Share of Fleet Hours';
+  matrix[12][3] = 'Allocated Dispatch Hours';
+  matrix[12][4] = 'Completed Trips';
+  matrix[12][5] = 'Trips / Driver Hour';
+  matrix[12][6] = 'Trips / Dispatch Hour';
+
+  // Rows 14+ : Data Rows
   if (driverCount > 0) {
     for (let i = 0; i < driverCount; i++) {
       const r = startDataRow + i;
@@ -196,7 +213,7 @@ function applyAnalysisSheetFormatting(sheet, startDataRow, endDataRow, totalRow,
     .setHorizontalAlignment('left');
   sheet.setRowHeight(2, 22);
 
-  // KPI Cards
+  // Row 1 KPI Cards (Driver Hours & Dispatch Hours)
   sheet.getRange('A3:B3').merge().setValue('TOTAL FLEET DRIVER HOURS');
   sheet.getRange('A4:B4').merge();
   sheet.getRange('A5:B5').merge().setValue('Active Road Hours');
@@ -216,10 +233,10 @@ function applyAnalysisSheetFormatting(sheet, startDataRow, endDataRow, totalRow,
   sheet.getRange('F5:G5').merge().setValue('Standard + Overtime');
   formatKpiCard(sheet, 'F3:G5', 'F4:G4', '#,##0.0 "hrs"', '#0f172a');
 
-  // Ratio Cards
+  // Row 2 KPI Cards (Total Labor Ratios)
   sheet.getRange('A6:B6').merge().setValue('FLEET DISPATCH RATIO');
   sheet.getRange('A7:B7').merge();
-  sheet.getRange('A8:B8').merge().setValue('Dispatch Hours / Road Hr');
+  sheet.getRange('A8:B8').merge().setValue('Total Dispatch Hrs / Road Hr');
   formatKpiCard(sheet, 'A6:B8', 'A7:B7', '0.000', '#0369a1');
 
   sheet.getRange('C6:D6').merge().setValue('SUPPORT MINS / ROAD HR');
@@ -232,23 +249,42 @@ function applyAnalysisSheetFormatting(sheet, startDataRow, endDataRow, totalRow,
   sheet.getRange('E8:G8').merge().setValue('Road Hrs driven per 1 Dispatch Hr');
   formatKpiCard(sheet, 'E6:G8', 'E7:G7', '0.00 "x"', '#15803d');
 
+  // Row 3 KPI Cards (20h Operating Window & Real-Time Concurrency)
+  sheet.getRange('A9:B9').merge().setValue('EST. CONCURRENT CARS ON ROAD');
+  sheet.getRange('A10:B10').merge();
+  sheet.getRange('A11:B11').merge();
+  formatKpiCard(sheet, 'A9:B11', 'A10:B10', '0.0 "cars"', '#0d9488');
+
+  sheet.getRange('C9:D9').merge().setValue('LIVE CARS / ON-DUTY DISPATCHER');
+  sheet.getRange('C10:D10').merge();
+  sheet.getRange('C11:D11').merge();
+  formatKpiCard(sheet, 'C9:D11', 'C10:D10', '0.00 "cars/disp"', '#0284c7');
+
+  sheet.getRange('E9:G9').merge().setValue('DESK CAPACITY UTILIZATION');
+  sheet.getRange('E10:G10').merge();
+  sheet.getRange('E11:G11').merge();
+  formatKpiCard(sheet, 'E9:G11', 'E10:G10', '0.0%', '#7c3aed');
+
   sheet.setRowHeight(3, 20);
-  sheet.setRowHeight(4, 32);
+  sheet.setRowHeight(4, 30);
   sheet.setRowHeight(5, 18);
   sheet.setRowHeight(6, 20);
-  sheet.setRowHeight(7, 32);
+  sheet.setRowHeight(7, 30);
   sheet.setRowHeight(8, 18);
+  sheet.setRowHeight(9, 20);
+  sheet.setRowHeight(10, 30);
+  sheet.setRowHeight(11, 18);
 
   // Table Section Header
-  sheet.getRange('A9:G9').merge()
+  sheet.getRange('A12:G12').merge()
     .setBackground('#0f172a')
     .setFontColor('#ffffff')
     .setFontWeight('bold')
     .setFontSize(10)
     .setHorizontalAlignment('left');
-  sheet.setRowHeight(9, 26);
+  sheet.setRowHeight(12, 26);
 
-  const tableHeaderRange = sheet.getRange('A10:G10');
+  const tableHeaderRange = sheet.getRange('A13:G13');
   tableHeaderRange
     .setBackground('#334155')
     .setFontColor('#ffffff')
@@ -257,7 +293,7 @@ function applyAnalysisSheetFormatting(sheet, startDataRow, endDataRow, totalRow,
     .setHorizontalAlignment('center')
     .setVerticalAlignment('middle')
     .setWrap(true);
-  sheet.setRowHeight(10, 30);
+  sheet.setRowHeight(13, 30);
 
   if (driverCount > 0) {
     const dataRange = sheet.getRange(startDataRow, 1, driverCount, 7);
@@ -308,7 +344,7 @@ function applyAnalysisSheetFormatting(sheet, startDataRow, endDataRow, totalRow,
   sheet.setColumnWidth(6, 140);
   sheet.setColumnWidth(7, 150);
 
-  sheet.setFrozenRows(10);
+  sheet.setFrozenRows(13);
 }
 
 function formatKpiCard(sheet, fullRangeA1, valueRangeA1, numberFormat, valueColor) {
@@ -327,7 +363,7 @@ function formatKpiCard(sheet, fullRangeA1, valueRangeA1, numberFormat, valueColo
 
   const valRange = sheet.getRange(valueRangeA1);
   valRange
-    .setFontSize(16)
+    .setFontSize(15)
     .setFontWeight('bold')
     .setFontColor(valueColor || '#0f172a')
     .setNumberFormat(numberFormat)

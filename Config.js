@@ -1,7 +1,8 @@
 /**
  * @fileoverview Configuration file for Fleet Dispatch Efficiency Engine.
  * Contains global settings, Drive folder definitions, shift configurations,
- * timesheet integration, header mappings, driver alias merging, and UI theme styling.
+ * timesheet integration, header mappings, driver alias merging, UI theme styling,
+ * and 20-hour operating window & real-time concurrency constants.
  */
 
 const CONFIG = {
@@ -18,6 +19,19 @@ const CONFIG = {
 
   // File naming regex / pattern
   FILE_NAME_PATTERN: /^(.*)\s*-\s*Drivers Daily Balance$/i,
+
+  // --------------------------------------------------------------------------
+  // OPERATING WINDOW & REAL-TIME CONCURRENCY CONSTANTS
+  // --------------------------------------------------------------------------
+  // Dispatch operation window: 4:00 AM to 12:00 AM midnight (20 active hours/day)
+  DAILY_OPERATING_WINDOW_HOURS: 20.0,
+
+  // Average on-duty dispatchers active concurrently at any given hour:
+  // 39 scheduled weekday hours / 20 operating window hours = 1.95 dispatchers
+  AVG_CONCURRENT_DISPATCHERS: 1.95,
+
+  // Optimal dispatch desk capacity benchmark: 1 on-duty dispatcher to 4 active road cars
+  OPTIMAL_DESK_CAPACITY_BENCHMARK: 4.0,
 
   // --------------------------------------------------------------------------
   // DISPATCHER ROSTER & SCHEDULE RULES

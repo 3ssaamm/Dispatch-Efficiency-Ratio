@@ -1,7 +1,7 @@
 /**
  * @fileoverview Settings Manager for Fleet Dispatch Efficiency Engine.
  * Creates and reads the 'Settings' sheet tab to allow configuring
- * Folder IDs, shift schedules, and defaults directly inside Google Sheets.
+ * Folder IDs, operating window, shift schedules, and defaults directly inside Google Sheets.
  */
 
 function getEffectiveDriveFolderId() {
@@ -59,23 +59,41 @@ function initSettingsSheet() {
   sheet.getRange('B5:D5').merge().setValue(CONFIG.WORKING_TIME_SPREADSHEET_URL);
 
   sheet.getRange('A6').setValue('Active Dispatchers:').setFontWeight('bold');
-  sheet.getRange('B6:D6').merge().setValue('Muhammad, Mariam (Works Sat, Thu OFF), Nourween (2026), Nour (Fixed 9h)');
+  sheet.getRange('B6:D6').merge().setValue('Muhammad, Mariam (Works Sat, Thu OFF), Nourween (2026), Mohanad, Nour (Fixed 9h)');
 
   sheet.getRange('A7').setValue('Excluded Staff:').setFontWeight('bold');
-  sheet.getRange('B7:D7').merge().setValue('Mohanad, Abdulrahman, Fares (Disregarded)');
+  sheet.getRange('B7:D7').merge().setValue('Abdulrahman, Fares (Disregarded)');
 
-  // Section 2: Dispatcher Shift Schedule
+  // Section 2: Operating Window & Concurrency Benchmarks
   sheet.getRange('A9:D9').merge()
-    .setValue('2. DISPATCHER SHIFTS & WEEKLY SCHEDULE (CALENDAR BASE)')
+    .setValue('2. DAILY OPERATING WINDOW & REAL-TIME CONCURRENCY BENCHMARKS')
     .setBackground('#334155')
     .setFontColor('#ffffff')
     .setFontWeight('bold')
     .setFontSize(10);
   sheet.setRowHeight(9, 24);
 
+  sheet.getRange('A10').setValue('Daily Operating Window:').setFontWeight('bold');
+  sheet.getRange('B10:D10').merge().setValue('20.0 Hours/Day (4:00 AM – 12:00 AM Midnight)');
+
+  sheet.getRange('A11').setValue('Avg Concurrent Dispatchers:').setFontWeight('bold');
+  sheet.getRange('B11:D11').merge().setValue('1.95 On-Duty Dispatchers (39h Weekday Labor / 20h Window)');
+
+  sheet.getRange('A12').setValue('Optimal Desk Capacity:').setFontWeight('bold');
+  sheet.getRange('B12:D12').merge().setValue('1:4 Target Benchmark (1 On-Duty Dispatcher to 4 Active Road Cars)');
+
+  // Section 3: Dispatcher Shift Schedule
+  sheet.getRange('A14:D14').merge()
+    .setValue('3. DISPATCHER SHIFTS & WEEKLY SCHEDULE (CALENDAR BASE)')
+    .setBackground('#334155')
+    .setFontColor('#ffffff')
+    .setFontWeight('bold')
+    .setFontSize(10);
+  sheet.setRowHeight(14, 24);
+
   const scheduleHeaders = ['Dispatcher', 'Daily Shift Hours', 'Working Days', 'Off Days'];
   for (let c = 0; c < 4; c++) {
-    sheet.getRange(10, c + 1).setValue(scheduleHeaders[c])
+    sheet.getRange(15, c + 1).setValue(scheduleHeaders[c])
       .setBackground('#475569')
       .setFontColor('#ffffff')
       .setFontWeight('bold')
@@ -86,28 +104,29 @@ function initSettingsSheet() {
     ['Muhammad', '10.0 hrs', 'Mon, Tue, Wed, Thu, Fri', 'Sat, Sun'],
     ['Mariam', '10.0 hrs', 'Mon, Tue, Wed, Fri, Sat', 'Thursday, Sun'],
     ['Nourween', '10.0 hrs', 'Mon, Tue, Wed, Thu, Fri (Active 2026)', 'Sat, Sun'],
+    ['Mohanad', 'Logged Hours', 'As logged in Timesheet', 'As logged'],
     ['Nour', '9.0 hrs', 'Mon, Tue, Wed, Thu, Fri (Fixed)', 'Sat, Sun']
   ];
 
   for (let r = 0; r < shiftData.length; r++) {
     for (let c = 0; c < 4; c++) {
-      sheet.getRange(11 + r, c + 1).setValue(shiftData[r][c])
+      sheet.getRange(16 + r, c + 1).setValue(shiftData[r][c])
         .setHorizontalAlignment(c === 0 ? 'left' : 'center');
     }
   }
 
-  // Section 3: Daily Fleet Labor Breakdown
-  sheet.getRange('A16:D16').merge()
-    .setValue('3. DAILY DISPATCH LABOR HOURS PER DAY OF WEEK')
+  // Section 4: Daily Fleet Labor Breakdown
+  sheet.getRange('A22:D22').merge()
+    .setValue('4. DAILY DISPATCH LABOR HOURS PER DAY OF WEEK')
     .setBackground('#334155')
     .setFontColor('#ffffff')
     .setFontWeight('bold')
     .setFontSize(10);
-  sheet.setRowHeight(16, 24);
+  sheet.setRowHeight(22, 24);
 
   const daysHeader = ['Day of Week', 'Active Dispatchers', 'Daily Total Hours', 'Notes'];
   for (let c = 0; c < 4; c++) {
-    sheet.getRange(17, c + 1).setValue(daysHeader[c])
+    sheet.getRange(23, c + 1).setValue(daysHeader[c])
       .setBackground('#475569')
       .setFontColor('#ffffff')
       .setFontWeight('bold')
@@ -126,7 +145,7 @@ function initSettingsSheet() {
 
   for (let r = 0; r < dailyTotals.length; r++) {
     for (let c = 0; c < 4; c++) {
-      sheet.getRange(18 + r, c + 1).setValue(dailyTotals[r][c])
+      sheet.getRange(24 + r, c + 1).setValue(dailyTotals[r][c])
         .setHorizontalAlignment(c === 0 ? 'left' : 'center');
     }
   }
