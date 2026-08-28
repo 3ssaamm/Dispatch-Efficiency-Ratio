@@ -3,6 +3,7 @@
  * Consolidates all monthly balance sheets with month-over-month trend tables,
  * live dynamic formulas, aggregate KPI cards, and an intelligently merged
  * cumulative driver leaderboard.
+ * Filters out zero-hour months (e.g. July 2026) to preserve statistical accuracy.
  */
 
 // Node.js fallback import for testing
@@ -44,10 +45,17 @@ function buildMasterSummarySheet(allMonthsData, targetSpreadsheet) {
     sheet = ss.insertSheet(tabName, 1);
   }
 
-  let months = allMonthsData;
-  if (!months || months.length === 0) {
-    months = collectDataFromExistingAnalysisSheets(ss);
+  let rawMonths = allMonthsData;
+  if (!rawMonths || rawMonths.length === 0) {
+    rawMonths = collectDataFromExistingAnalysisSheets(ss);
   }
+
+  // Filter out any month with zero active driver hours (e.g. July 2026)
+  const months = rawMonths.filter(m => (m.totalDriverHours > 0) && (m.drivers && m.drivers.length > 0));
+  const excludedZeroMonths = rawMonths.filter(m => !m.totalDriverHours || m.totalDriverHours <= 0);
+  const excludedNotice = excludedZeroMonths.length > 0
+    ? ` | Excluded from summary (0 driver hrs): ${excludedZeroMonths.map(em => `${em.monthName} ${em.year}`).join(', ')}`
+    : '';
 
   months.sort((a, b) => (a.year - b.year) || (a.monthIndex - b.monthIndex));
 
@@ -71,23 +79,23 @@ function buildMasterSummarySheet(allMonthsData, targetSpreadsheet) {
   matrix[0][0] = '🚀 FLEET DISPATCH EFFICIENCY — ALL-MONTHS MASTER EXECUTIVE SUMMARY';
 
   // Row 2: Subtitle
-  matrix[1][0] = `Generated: ${new Date().toLocaleString()} | Synced Months: ${monthCount} | Total Unique Drivers Tracked: ${driverCount}`;
+  matrix[1][0] = `Generated: ${new Date().toLocaleString()} | Active Months: ${monthCount} | Unique Drivers: ${driverCount}${excludedNotice}`;
 
   // Rows 3-5: Aggregate Top KPI Cards
   // Card 1: TOTAL FLEET DRIVER HOURS
-  matrix[2][0] = 'TOTAL FLEET DRIVER HOURS (ALL MONTHS)';
+  matrix[2][0] = 'TOTAL FLEET DRIVER HOURS (ACTIVE MONTHS)';
   matrix[3][0] = monthCount > 0 ? `=SUM(C${startMonthRow}:C${endMonthRow})` : 0;
   matrix[4][0] = 'Total Active Road Hours';
 
   // Card 2: STANDARD DISPATCH HOURS
   matrix[2][3] = 'TOTAL STANDARD DISPATCH HOURS';
   matrix[3][3] = monthCount > 0 ? `=SUM(D${startMonthRow}:D${endMonthRow})` : 0;
-  matrix[4][3] = 'Calendar Base (4 Dispatchers)';
+  matrix[4][3] = 'Muhammad, Mariam, Nourween, Nour';
 
   // Card 3: OVERTIME HOURS
   matrix[2][6] = 'TOTAL OVERTIME DISPATCH HOURS';
   matrix[3][6] = monthCount > 0 ? `=SUM(E${startMonthRow}:E${endMonthRow})` : 0;
-  matrix[4][6] = 'Total Extra Adjustments';
+  matrix[4][6] = 'Total Overtime Adjustments';
 
   // Card 4: TOTAL DISPATCH HOURS
   matrix[2][9] = 'TOTAL DISPATCH LABOR HOURS';
@@ -111,7 +119,7 @@ function buildMasterSummarySheet(allMonthsData, targetSpreadsheet) {
   matrix[7][8] = 'Road Hours driven per 1 Dispatch Hr';
 
   // Row 10: Section 1 Header
-  matrix[9][0] = '1. MONTH-OVER-MONTH FLEET DISPATCH PERFORMANCE COMPARISON';
+  matrix[9][0] = '1. MONTH-OVER-MONTH FLEET DISPATCH PERFORMANCE COMPARISON (ACTIVE MONTHS)';
 
   // Row 11: Month Table Column Headers
   matrix[10][0] = 'Month & Year';
@@ -133,12 +141,17 @@ function buildMasterSummarySheet(allMonthsData, targetSpreadsheet) {
       const m = months[i];
       const r = startMonthRow + i;
       const rowIdx = r - 1;
-      const tabTargetName = `${m.monthName} ${m.year} - Analysis`;
+      
+      // Target concise tab name first: e.g. "August 2026"
+      const tabTargetName = `${m.monthName} ${m.year}`;
+      const targetSheet = ss.getSheetByName(tabTargetName) 
+        || ss.getSheetByName(`${m.monthName} ${m.year} - Analysis`)
+        || ss.getSheetByName(`${m.monthName} - Analysis`)
+        || ss.getSheetByName(m.monthName);
 
       matrix[rowIdx][0] = `${m.monthName} ${m.year}`;
       matrix[rowIdx][1] = m.driverCount || (m.drivers ? m.drivers.length : 0);
 
-      const targetSheet = ss.getSheetByName(tabTargetName) || ss.getSheetByName(`${m.monthName} - Analysis`);
       if (targetSheet) {
         const actualTab = targetSheet.getName();
         matrix[rowIdx][2] = `='${actualTab}'!A4`;
@@ -151,7 +164,7 @@ function buildMasterSummarySheet(allMonthsData, targetSpreadsheet) {
       } else {
         matrix[rowIdx][2] = m.totalDriverHours || 0;
         matrix[rowIdx][3] = m.standardDispatchHours || 0;
-        matrix[rowIdx][4] = 0;
+        matrix[rowIdx][4] = m.overtimeHours || 0;
         matrix[rowIdx][5] = `=D${r}+E${r}`;
         matrix[rowIdx][6] = `=IF(C${r}>0, F${r}/C${r}, 0)`;
         matrix[rowIdx][7] = `=G${r}*60`;
@@ -185,7 +198,7 @@ function buildMasterSummarySheet(allMonthsData, targetSpreadsheet) {
   const sec2TitleIdx = sec2TitleRow - 1;
   const sec2HeaderIdx = sec2HeaderRow - 1;
 
-  matrix[sec2TitleIdx][0] = '2. CUMULATIVE DRIVER PERFORMANCE LEADERBOARD (ALL MONTHS)';
+  matrix[sec2TitleIdx][0] = '2. CUMULATIVE DRIVER PERFORMANCE LEADERBOARD (ACTIVE MONTHS)';
 
   matrix[sec2HeaderIdx][0] = 'Driver Name';
   matrix[sec2HeaderIdx][1] = 'Months Active';
@@ -255,14 +268,12 @@ function buildMasterSummarySheet(allMonthsData, targetSpreadsheet) {
 }
 
 /**
- * Aggregates all driver data across multiple months into cumulative totals.
- * Intelligently merges single names (e.g. "Brian") into full names ("Brian Macancela").
+ * Aggregates all driver data across multiple active months into cumulative totals.
  */
 function aggregateCumulativeDriverData(months) {
   const isSummaryFn = (typeof isSummaryRowName === 'function') ? isSummaryRowName : (_isSummaryRowName || (() => false));
   const normDriverFn = (typeof normalizeDriverName === 'function') ? normalizeDriverName : _normalizeDriverName;
 
-  // Pass 1: Build dynamic global full name mapping across all months
   const globalFullNameMap = {};
   for (const m of months) {
     const drivers = m.drivers || [];
@@ -278,10 +289,11 @@ function aggregateCumulativeDriverData(months) {
     }
   }
 
-  // Pass 2: Aggregate driver records using canonical full names
   const driverMap = {};
 
   for (const m of months) {
+    if (!m.totalDriverHours || m.totalDriverHours <= 0) continue;
+
     const drivers = m.drivers || [];
     for (const d of drivers) {
       const rawName = String(d.driverName || '').trim();
@@ -325,49 +337,58 @@ function aggregateCumulativeDriverData(months) {
 }
 
 /**
- * Discovers existing '[Month] - Analysis' sheets from the active workbook.
+ * Discovers existing monthly tabs from the active workbook.
  */
 function collectDataFromExistingAnalysisSheets(ss) {
   const sheets = ss.getSheets();
   const list = [];
+  const systemNames = ['master summary', 'read me', 'user guide', 'settings', 'execution log', 'dispatcher hours audit', 'sheet1'];
 
   for (const s of sheets) {
     const name = s.getName();
-    if (name.includes('- Analysis')) {
-      const monthPart = name.replace('- Analysis', '').trim();
-      const parsed = parseMonthAndYear(monthPart);
-      const schedule = calculateMonthlyDispatchHours(parsed.monthIndex, parsed.year);
+    const lowerName = name.toLowerCase();
 
-      const lastRow = s.getLastRow();
-      const drivers = [];
-      let totalDriverHours = 0;
-      let totalTrips = 0;
+    // Check if it's a system sheet
+    const isSystem = systemNames.some(sys => lowerName.includes(sys));
+    if (isSystem) continue;
 
-      if (lastRow >= 11) {
-        const vals = s.getRange(11, 1, lastRow - 11, 7).getValues();
-        for (const row of vals) {
-          const dName = String(row[0] || '').trim();
-          if (!dName || isSummaryRowName(dName)) continue;
-          const hrs = parseNumericValue(row[1]);
-          const trips = parseNumericValue(row[4]);
-          drivers.push({ driverName: dName, hours: hrs, trips: trips });
-          totalDriverHours += hrs;
-          totalTrips += trips;
-        }
+    // Check if it matches a month name (e.g. "August 2026", "August 2026 - Analysis")
+    const isMonth = MONTH_NAMES.some(m => lowerName.includes(m.toLowerCase()));
+    if (!isMonth) continue;
+
+    const monthPart = name.replace('- Analysis', '').trim();
+    const parsed = parseMonthAndYear(monthPart);
+    const schedule = calculateMonthlyDispatchHours(parsed.monthIndex, parsed.year);
+
+    const lastRow = s.getLastRow();
+    const drivers = [];
+    let totalDriverHours = 0;
+    let totalTrips = 0;
+
+    if (lastRow >= 11) {
+      const vals = s.getRange(11, 1, lastRow - 11, 7).getValues();
+      for (const row of vals) {
+        const dName = String(row[0] || '').trim();
+        if (!dName || isSummaryRowName(dName)) continue;
+        const hrs = parseNumericValue(row[1]);
+        const trips = parseNumericValue(row[4]);
+        drivers.push({ driverName: dName, hours: hrs, trips: trips });
+        totalDriverHours += hrs;
+        totalTrips += trips;
       }
-
-      list.push({
-        monthName: parsed.monthName,
-        monthIndex: parsed.monthIndex,
-        year: parsed.year,
-        fileName: `${parsed.monthName} - Drivers Daily Balance`,
-        totalDriverHours: totalDriverHours,
-        totalTrips: totalTrips,
-        standardDispatchHours: schedule.totalHours,
-        driverCount: drivers.length,
-        drivers: drivers
-      });
     }
+
+    list.push({
+      monthName: parsed.monthName,
+      monthIndex: parsed.monthIndex,
+      year: parsed.year,
+      fileName: `${parsed.monthName} - Drivers Daily Balance`,
+      totalDriverHours: totalDriverHours,
+      totalTrips: totalTrips,
+      standardDispatchHours: schedule.totalHours,
+      driverCount: drivers.length,
+      drivers: drivers
+    });
   }
 
   return list;
@@ -403,12 +424,12 @@ function formatMasterSummarySheet(sheet, cfg) {
 
   sheet.getRange('A3:C3').merge().setValue('TOTAL FLEET DRIVER HOURS');
   sheet.getRange('A4:C4').merge();
-  sheet.getRange('A5:C5').merge().setValue('All Synced Months Combined');
+  sheet.getRange('A5:C5').merge().setValue('Active Months Combined');
   formatKpiCard(sheet, 'A3:C5', 'A4:C4', '#,##0.0 "hrs"', '#1e3a8a');
 
   sheet.getRange('D3:F3').merge().setValue('TOTAL STANDARD DISPATCH');
   sheet.getRange('D4:F4').merge();
-  sheet.getRange('D5:F5').merge().setValue('Base Calendar Shifts');
+  sheet.getRange('D5:F5').merge().setValue('Muhammad, Mariam, Nourween, Nour');
   formatKpiCard(sheet, 'D3:F3', 'D4:F4', '#,##0.0 "hrs"', '#1e293b');
 
   sheet.getRange('G3:I3').merge().setValue('TOTAL OVERTIME / ADJ');

@@ -13,12 +13,23 @@ function onOpen() {
     .addItem('📅 Sync Selected Month', 'menuSyncSelectedMonth')
     .addSeparator()
     .addItem('📊 Open / Refresh "Master Summary" Tab', 'menuBuildMasterSummaryTab')
+    .addItem('🕒 Open / Refresh "Dispatcher Hours Audit" Tab', 'menuBuildDispatcherAuditTab')
     .addItem('⚡ Recalculate All Dispatch Ratios', 'menuRecalculateRatios')
     .addSeparator()
     .addItem('📖 Open / Refresh "Read Me & Guide" Tab', 'menuBuildReadMeTab')
     .addItem('⚙️ Open / Reset Settings Tab', 'initSettingsSheet')
     .addItem('🧪 Generate Sample Data in Drive (Demo)', 'menuGenerateSampleData')
     .addToUi();
+}
+
+/**
+ * Menu Handler: Builds or refreshes the Dispatcher Hours Audit tab.
+ */
+function menuBuildDispatcherAuditTab() {
+  showToast('Building Dispatcher Working Hours Audit...', 'Dispatcher Audit', 6);
+  const sheet = buildDispatcherAuditSheet();
+  SpreadsheetApp.getActiveSpreadsheet().setActiveSheet(sheet);
+  showToast('Dispatcher Hours Audit refreshed successfully!', 'Audit Ready', 5);
 }
 
 /**
@@ -41,14 +52,36 @@ function menuBuildReadMeTab() {
 }
 
 /**
+ * Cleans up legacy sheet tab names by removing '- Analysis' suffix.
+ */
+function cleanupLegacyTabNames(ss) {
+  const sheets = ss.getSheets();
+  for (const s of sheets) {
+    const oldName = s.getName();
+    if (oldName.includes('- Analysis')) {
+      const newName = oldName.replace('- Analysis', '').trim();
+      const existing = ss.getSheetByName(newName);
+      if (!existing) {
+        s.setName(newName);
+      }
+    }
+  }
+}
+
+/**
  * Menu Handler: Syncs all monthly balance spreadsheets found in the Drive folder & subfolders.
  */
 function menuSyncAllMonthlyFiles() {
   showToast('Scanning Drive folder for monthly balance spreadsheets...', 'Sync in Progress', 10);
 
   try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    
     // Ensure Read Me tab exists
-    buildReadMeSheet();
+    buildReadMeSheet(ss);
+
+    // Clean up any legacy '- Analysis' tab names
+    cleanupLegacyTabNames(ss);
 
     const matchedFiles = findMonthlyBalanceFiles();
 
@@ -68,7 +101,7 @@ function menuSyncAllMonthlyFiles() {
     for (const item of matchedFiles) {
       try {
         const monthData = extractDriverDataFromSummary(item.fileId, item.monthIndex, item.year);
-        buildMonthlyAnalysisSheet(monthData);
+        buildMonthlyAnalysisSheet(monthData, ss);
         allMonthsData.push(monthData);
 
         let warnMsg = '';
@@ -79,16 +112,18 @@ function menuSyncAllMonthlyFiles() {
           successCount++;
         }
 
-        summaryLog.push(`• ${item.monthName} ${item.year} (${item.folderName}): ${monthData.driverCount} unique drivers (${monthData.rawRowsProcessed || 0} daily entries aggregated), ${monthData.totalDriverHours.toFixed(1)} hrs ${warnMsg ? '⚠️ ' + warnMsg : '✅'}`);
+        const noteZero = (monthData.totalDriverHours === 0) ? ' [0 driver hrs - Excluded from Master Summary]' : '';
+        summaryLog.push(`• ${item.monthName} ${item.year} (${item.folderName}): ${monthData.driverCount} unique drivers, ${monthData.totalDriverHours.toFixed(1)} hrs ${warnMsg ? '⚠️ ' + warnMsg : '✅'}${noteZero}`);
       } catch (fileErr) {
         summaryLog.push(`• ${item.fileName} (${item.folderName}): ❌ ERROR - ${fileErr.message}`);
         logExecution('Sync File', 'ERROR', `Failed to process ${item.fileName}`, fileErr.message);
       }
     }
 
-    // Build/Refresh Master Summary tab
+    // Build/Refresh Master Summary tab and Dispatcher Audit tab
     if (allMonthsData.length > 0) {
-      buildMasterSummarySheet(allMonthsData);
+      buildMasterSummarySheet(allMonthsData, ss);
+      buildDispatcherAuditSheet(allMonthsData, ss);
     }
 
     const logStatus = warningCount > 0 ? 'WARNING' : 'SUCCESS';
@@ -97,7 +132,7 @@ function menuSyncAllMonthlyFiles() {
     showAlert(
       `Sync Complete!\n\nProcessed ${matchedFiles.length} monthly spreadsheet(s):\n\n` +
       summaryLog.join('\n') +
-      `\n\n✅ Individual monthly analysis tabs generated.\n✅ "📊 Master Summary" tab created with multi-month trends and driver leaderboard.\n✅ "📖 Read Me & Guide" tab available for reference.`,
+      `\n\n✅ Clean monthly tabs generated (e.g. "August 2026", "July 2026").\n✅ "📊 Master Summary" tab updated.\n✅ "🕒 Dispatcher Hours Audit" tab created.\n✅ "📖 Read Me & Guide" tab available.`,
       'Sync Summary'
     );
 
@@ -133,7 +168,8 @@ function menuSyncSelectedMonth() {
   showToast(`Searching for ${parsed.monthName} ${parsed.year} balance file...`, 'Syncing Month', 8);
 
   try {
-    buildReadMeSheet();
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    buildReadMeSheet(ss);
 
     const matchedFiles = findMonthlyBalanceFiles();
     const targetFile = matchedFiles.find(f => 
@@ -149,22 +185,22 @@ function menuSyncSelectedMonth() {
     }
 
     const monthData = extractDriverDataFromSummary(targetFile.fileId, targetFile.monthIndex, targetFile.year);
-    const sheet = buildMonthlyAnalysisSheet(monthData);
+    const sheet = buildMonthlyAnalysisSheet(monthData, ss);
 
-    // Refresh Master Summary
-    buildMasterSummarySheet();
+    // Refresh Master Summary and Dispatcher Audit
+    buildMasterSummarySheet(null, ss);
+    buildDispatcherAuditSheet(null, ss);
 
     SpreadsheetApp.getActiveSpreadsheet().setActiveSheet(sheet);
 
-    logExecution('Sync Selected Month', 'SUCCESS', `Successfully synced ${targetFile.monthName} ${targetFile.year}`, `${monthData.driverCount} unique drivers (${monthData.rawRowsProcessed || 0} daily entries aggregated)`);
+    logExecution('Sync Selected Month', 'SUCCESS', `Successfully synced ${targetFile.monthName} ${targetFile.year}`, `${monthData.driverCount} unique drivers`);
     showAlert(
       `Successfully synced ${targetFile.monthName} ${targetFile.year}!\n\n` +
       `• Unique Drivers: ${monthData.driverCount}\n` +
-      `• Daily Entries Aggregated: ${monthData.rawRowsProcessed || 0}\n` +
       `• Fleet Active Hours: ${monthData.totalDriverHours.toFixed(1)} hrs\n` +
       `• Completed Trips: ${monthData.totalTrips}\n` +
       `• Tab: "${sheet.getName()}"\n` +
-      `• Master Summary updated!`,
+      `• Master Summary & Dispatcher Audit updated!`,
       'Month Synced'
     );
 
@@ -175,33 +211,42 @@ function menuSyncSelectedMonth() {
 }
 
 /**
- * Menu Handler: Recalculates dispatch ratios on all existing '[Month] - Analysis' tabs.
+ * Menu Handler: Recalculates dispatch ratios on all existing monthly tabs.
  */
 function menuRecalculateRatios() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheets = ss.getSheets();
   let updatedCount = 0;
+  const systemNames = ['master summary', 'read me', 'user guide', 'settings', 'execution log', 'dispatcher hours audit', 'sheet1'];
 
   for (const sheet of sheets) {
     const name = sheet.getName();
-    if (name.includes('- Analysis')) {
-      const monthPart = name.replace('- Analysis', '').trim();
-      const parsed = parseMonthAndYear(monthPart);
-      const schedule = calculateMonthlyDispatchHours(parsed.monthIndex, parsed.year);
+    const lower = name.toLowerCase();
+    const isSystem = systemNames.some(sys => lower.includes(sys));
+    if (isSystem) continue;
+
+    const isMonth = MONTH_NAMES.some(m => lower.includes(m.toLowerCase()));
+    if (isMonth) {
+      const cleanName = name.replace('- Analysis', '').trim();
+      const parsed = parseMonthAndYear(cleanName);
+      const laborInfo = fetchDispatcherHoursFromTimesheet(parsed.monthIndex, parsed.year);
 
       const labelC3 = sheet.getRange('C3').getValue();
       if (labelC3 && String(labelC3).includes('STANDARD DISPATCH')) {
-        sheet.getRange('C4').setValue(schedule.totalHours);
+        sheet.getRange('C4').setValue(laborInfo.standardHours);
+        if (laborInfo.overtimeHours > 0) {
+          sheet.getRange('E4').setValue(laborInfo.overtimeHours);
+        }
         updatedCount++;
       }
     }
   }
 
-  // Refresh Master Summary
-  buildMasterSummarySheet();
+  buildMasterSummarySheet(null, ss);
+  buildDispatcherAuditSheet(null, ss);
 
-  logExecution('Recalculate Ratios', 'SUCCESS', `Recalculated dispatch labor on ${updatedCount} analysis tab(s).`);
-  showAlert(`Successfully recalculated dispatch schedules across ${updatedCount} analysis sheet(s) and refreshed Master Summary.`, 'Recalculation Complete');
+  logExecution('Recalculate Ratios', 'SUCCESS', `Recalculated dispatch labor on ${updatedCount} monthly tab(s).`);
+  showAlert(`Successfully recalculated dispatch schedules across ${updatedCount} monthly sheet(s) and refreshed Master Summary & Dispatcher Audit.`, 'Recalculation Complete');
 }
 
 /**

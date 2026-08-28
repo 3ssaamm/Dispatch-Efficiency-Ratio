@@ -1,7 +1,7 @@
 /**
  * @fileoverview Configuration file for Fleet Dispatch Efficiency Engine.
  * Contains global settings, Drive folder definitions, shift configurations,
- * header mappings, driver name alias merging, and UI theme styling.
+ * timesheet integration, header mappings, driver alias merging, and UI theme styling.
  */
 
 const CONFIG = {
@@ -9,34 +9,55 @@ const CONFIG = {
   DRIVE_FOLDER_ID: '1iDd2ME2b6coX8GO6Dkom5u9jldkRSwVg',
   DRIVE_FOLDER_URL: 'https://drive.google.com/drive/folders/1iDd2ME2b6coX8GO6Dkom5u9jldkRSwVg?usp=sharing',
 
-  // Target sheet tab name inside each monthly workbook
+  // Timesheet Spreadsheet for Exact Dispatcher Working Hours & Overtime
+  WORKING_TIME_SPREADSHEET_ID: '1bDHi8a2TuopuWyM1vOH3cA-Vx3umsQqosipCWAhr9Fc',
+  WORKING_TIME_SPREADSHEET_URL: 'https://docs.google.com/spreadsheets/d/1bDHi8a2TuopuWyM1vOH3cA-Vx3umsQqosipCWAhr9Fc/edit?gid=557642234#gid=557642234',
+
+  // Target sheet tab name inside each monthly balance workbook
   SOURCE_SHEET_NAME: 'Summary',
 
   // File naming regex / pattern
   FILE_NAME_PATTERN: /^(.*)\s*-\s*Drivers Daily Balance$/i,
 
-  // Dispatcher shift schedules and daily labor hours (4 Dispatchers)
-  // - Disp 1: 10h Mon-Fri (Sat/Sun OFF)
-  // - Disp 2: 10h Mon-Fri (Sat/Sun OFF)
-  // - Disp 3: 10h Mon-Fri (Sat/Sun OFF)
-  // - Disp 4: 9h Mon-Fri (Sat/Sun OFF)
-  // Total Weekday = 10 + 10 + 10 + 9 = 39 hrs/day. Sat & Sun = 0 hrs/day.
+  // --------------------------------------------------------------------------
+  // DISPATCHER ROSTER & SCHEDULE RULES
+  // --------------------------------------------------------------------------
+  // 1. In Timesheet:
+  //    - Muhammad: 10h Mon-Fri (Sat/Sun OFF)
+  //    - Mariam: 10h Mon-Wed, Fri, Sat (Thursday & Sunday OFF)
+  //    - Nourween: 10h Mon-Fri (Sat/Sun OFF) [Different from Nour!]
+  // 2. Fixed (NOT in timesheet):
+  //    - Nour: Fixed 9h/day Mon-Fri (Sat/Sun OFF)
+  // 3. Excluded Staff:
+  //    - Mohanad / Muhanad
+  //    - Abdulrahman
+  // --------------------------------------------------------------------------
+  ACTIVE_TIMESHEET_DISPATCHERS: ['muhammad', 'mohamed', 'mariam', 'nourween'],
+  FIXED_SCHEDULE_DISPATCHERS: [
+    { name: 'Nour', dailyHours: 9, workDays: [1, 2, 3, 4, 5], offDays: [0, 6], notes: 'Fixed 9h/day Mon-Fri (Not in timesheet)' }
+  ],
+  EXCLUDED_DISPATCHER_NAMES: ['mohanad', 'muhanad', 'abdulrahman', 'abdelrahman', 'abdo'],
+
+  // Calendar Shift Schedule (Fallback when timesheet is not present):
+  // - Mon, Tue, Wed, Fri: Muhammad (10h) + Mariam (10h) + Nourween (10h) + Nour (9h) = 39.0 hrs/day
+  // - Thursday: Muhammad (10h) + Mariam (OFF) + Nourween (10h) + Nour (9h) = 29.0 hrs/day
+  // - Saturday: Muhammad (OFF) + Mariam (10h) + Nourween (OFF) + Nour (OFF) = 10.0 hrs/day
+  // - Sunday: 0.0 hrs/day
   DISPATCH_HOURS_BY_DAY_OF_WEEK: {
-    0: 0,   // Sunday: Fleet-wide OFF
-    1: 39,  // Monday: 39 hrs
-    2: 39,  // Tuesday: 39 hrs
-    3: 39,  // Wednesday: 39 hrs
-    4: 39,  // Thursday: 39 hrs
-    5: 39,  // Friday: 39 hrs
-    6: 0    // Saturday: OFF
+    0: 0,   // Sunday: OFF
+    1: 39,  // Monday: 10 + 10 + 10 + 9 = 39 hrs
+    2: 39,  // Tuesday: 10 + 10 + 10 + 9 = 39 hrs
+    3: 39,  // Wednesday: 10 + 10 + 10 + 9 = 39 hrs
+    4: 29,  // Thursday: 10 + 0 (Mariam OFF) + 10 + 9 = 29 hrs
+    5: 39,  // Friday: 10 + 10 + 10 + 9 = 39 hrs
+    6: 10   // Saturday: 0 + 10 (Mariam) + 0 + 0 = 10 hrs
   },
 
-  // Detailed shift rosters for auditing & settings display
   DISPATCHERS: [
-    { id: 1, name: 'Dispatcher 1', dailyHours: 10, workDays: [1, 2, 3, 4, 5], offDays: [0, 6] },
-    { id: 2, name: 'Dispatcher 2', dailyHours: 10, workDays: [1, 2, 3, 4, 5], offDays: [0, 6] },
-    { id: 3, name: 'Dispatcher 3', dailyHours: 10, workDays: [1, 2, 3, 4, 5], offDays: [0, 6] },
-    { id: 4, name: 'Dispatcher 4', dailyHours: 9,  workDays: [1, 2, 3, 4, 5], offDays: [0, 6] }
+    { id: 1, name: 'Muhammad', dailyHours: 10, source: 'Timesheet', workDays: [1, 2, 3, 4, 5], offDays: [0, 6], notes: '10h Mon-Fri (Sat/Sun OFF)' },
+    { id: 2, name: 'Mariam', dailyHours: 10, source: 'Timesheet', workDays: [1, 2, 3, 5, 6], offDays: [0, 4], notes: '10h Mon-Wed, Fri, Sat (Thu & Sun OFF)' },
+    { id: 3, name: 'Nourween', dailyHours: 10, source: 'Timesheet', workDays: [1, 2, 3, 4, 5], offDays: [0, 6], notes: '10h Mon-Fri (Sat/Sun OFF)' },
+    { id: 4, name: 'Nour', dailyHours: 9, source: 'Fixed Schedule', workDays: [1, 2, 3, 4, 5], offDays: [0, 6], notes: 'Fixed 9h/day Mon-Fri (Sat/Sun OFF)' }
   ],
 
   // Driver Name Alias Mapping: Automatically merges single first names into canonical full names
@@ -81,7 +102,8 @@ const CONFIG = {
   },
 
   SETTINGS_SHEET_NAME: 'Settings',
-  LOG_SHEET_NAME: 'Execution Log'
+  LOG_SHEET_NAME: 'Execution Log',
+  AUDIT_SHEET_NAME: '🕒 Dispatcher Hours Audit'
 };
 
 // If in Node.js environment for testing

@@ -1,11 +1,11 @@
 /**
- * @fileoverview Builder for the 'Read Me & Metric Guide' sheet tab.
- * Creates a beautifully formatted executive user guide and metric dictionary
- * directly inside the Google Spreadsheet.
+ * @fileoverview Builder for the 'Read Me & Guide' sheet tab.
+ * Creates a clean, elegant metric dictionary focused purely on
+ * how to read and understand all KPI cards, ratios, and table columns.
  */
 
 /**
- * Creates or refreshes the 'Read Me & Metric Guide' tab.
+ * Creates or refreshes the 'Read Me & Guide' tab.
  * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} [targetSpreadsheet]
  * @returns {GoogleAppsScript.Spreadsheet.Sheet}
  */
@@ -14,7 +14,6 @@ function buildReadMeSheet(targetSpreadsheet) {
   const tabName = '📖 Read Me & Guide';
 
   let sheet = ss.getSheetByName(tabName);
-  // Also check alternative names
   if (!sheet) sheet = ss.getSheetByName('Read Me');
   if (!sheet) sheet = ss.getSheetByName('User Guide');
 
@@ -22,72 +21,64 @@ function buildReadMeSheet(targetSpreadsheet) {
     sheet.clear();
     sheet.clearConditionalFormatRules();
   } else {
-    sheet = ss.insertSheet(tabName, 0); // Put it as the first tab
+    sheet = ss.insertSheet(tabName, 0);
   }
 
   const rows = [];
   
   // Row 1: Title Banner
-  rows.push(['📖 FLEET DISPATCH EFFICIENCY ENGINE — EXECUTIVE GUIDE & METRIC DICTIONARY', '', '', '']);
+  rows.push(['📖 FLEET DISPATCH EFFICIENCY ENGINE — METRIC DICTIONARY & GUIDE', '', '', '']);
   // Row 2: Subtitle
-  rows.push(['A complete guide on how data is aggregated, how dispatch overhead is calculated, and what each metric means.', '', '', '']);
+  rows.push(['A clear reference guide to understand and interpret all KPI cards, overhead ratios, and driver performance metrics.', '', '', '']);
   // Row 3: Spacer
   rows.push(['', '', '', '']);
 
-  // Section 1: Overview
-  rows.push(['1. SYSTEM OVERVIEW & WORKFLOW', '', '', '']);
-  rows.push(['How it works:', '1. The engine scans your Google Drive balance folder (including 2025 and 2026 subfolders).', '', '']);
-  rows.push(['', '2. In each monthly balance sheet, it reads the "Summary" tab and AGGREGATES daily records by driver so each driver appears once with their total monthly hours and trips.', '', '']);
-  rows.push(['', '3. It evaluates the exact calendar days of the month for the 4-dispatcher schedule (Mon-Fri 39h/day, Sat/Sun OFF) to calculate exact standard monthly labor hours.', '', '']);
-  rows.push(['', '4. It generates a dedicated "[Month] [Year] - Analysis" tab with live formulas linking Top KPI Cards to the Driver Table.', '', '']);
-  rows.push(['', '', '', '']);
-
-  // Section 2: Top KPI Summary Metrics
-  rows.push(['2. TOP KPI CARDS EXPLAINED (Rows 3–8 on Analysis Sheets)', '', '', '']);
-  rows.push(['Metric Name', 'Formula / Source', 'Business Meaning & Interpretation', 'Example Value']);
+  // Section 1: Top KPI Cards
+  rows.push(['1. TOP KPI CARDS (Monthly & Master Summary Sheets)', '', '', '']);
+  rows.push(['Metric Name', 'Calculation Logic', 'Business Definition & How to Read It', 'Example & Context']);
   
   const kpiData = [
     [
       'Total Fleet Driver Hours',
-      '=SUM(Driver Hours)',
-      'Total cumulative active road hours worked by all drivers combined across the entire month.',
+      'Sum of all driver active hours in the period',
+      'Total cumulative hours all drivers spent on the road providing service during the month.',
       '909.0 hrs'
     ],
     [
       'Standard Dispatch Hours',
-      'Calendar Shift Logic',
-      'Exact monthly base hours worked by the 4 dispatchers based on the month\'s active weekdays (39.0 hrs/day).',
-      '819.0 hrs (21 weekdays × 39h)'
+      'Timesheet WT / Base Calendar (Muhammad 10h Mon-Fri, Mariam 10h Mon-Wed,Fri,Sat, Nour 9h Mon-Fri)',
+      'Total standard working hours deployed by the active dispatchers (Muhammad, Mariam, Nour). Excludes Mohanad & Abdulrahman.',
+      '656.5 hrs (or calendar base)'
     ],
     [
       'Overtime / Adjustment (E4)',
-      'Editable User Input',
-      '✏️ Type any extra overtime or adjusted dispatch hours here. Changing this cell instantly updates the entire sheet live!',
-      '0.0 hrs (or enter 20.0)'
+      'Timesheet Overtime OT / Editable input cell',
+      'Verified overtime hours from the Working Time timesheet or manual input. Modifying this cell updates all ratios live.',
+      '61.0 hrs (or enter 0.0)'
     ],
     [
       'Total Dispatch Hours',
-      '= Standard + Overtime',
-      'The complete pool of dispatch labor hours deployed during that month.',
-      '819.0 hrs'
+      'Standard Dispatch Hours + Overtime Hours',
+      'The full pool of dispatch labor hours deployed during that month.',
+      '717.5 hrs'
     ],
     [
       'Fleet Dispatch Ratio',
-      '= Total Dispatch Hrs / Driver Hrs',
-      'Dispatch Overhead Ratio: How many hours of dispatch labor were required per 1 hour of driver road time. Lower ratio = higher labor leverage.',
-      '0.901 (0.90 dispatch hrs per 1 road hr)'
+      'Total Dispatch Hours ÷ Total Fleet Driver Hours',
+      'Dispatch Overhead Ratio: Represents how many hours of dispatch support are needed for every 1.0 hour of road driving. A lower ratio means higher labor efficiency.',
+      '0.789 (0.79 dispatch hrs per 1 road hr)'
     ],
     [
       'Support Mins / Road Hr',
-      '= Fleet Dispatch Ratio × 60',
+      'Fleet Dispatch Ratio × 60 minutes',
       'Human-Friendly Overhead: How many minutes of dispatcher support time are dedicated for every 1 hour a driver is driving on the road.',
-      '54.1 mins of dispatch per 1 road hr'
+      '47.3 mins per 1 road hr'
     ],
     [
       'Driver Leverage Ratio',
-      '= Driver Hrs / Total Dispatch Hrs',
+      'Total Fleet Driver Hours ÷ Total Dispatch Hours',
       'Labor Multiplier: The number of active road hours generated by the fleet for every 1 hour of dispatcher labor. Higher is better.',
-      '1.11x (1.11 road hrs per 1 dispatch hr)'
+      '1.27x (1.27 road hrs per 1 dispatch hr)'
     ]
   ];
 
@@ -97,52 +88,52 @@ function buildReadMeSheet(targetSpreadsheet) {
 
   rows.push(['', '', '', '']);
 
-  // Section 3: Driver Performance & Allocation Table
-  rows.push(['3. DRIVER COMPARISON TABLE EXPLAINED (Rows 10+ on Analysis Sheets)', '', '', '']);
-  rows.push(['Column Name', 'Formula / Logic', 'Business Meaning & Interpretation', 'Strategic Use Case']);
+  // Section 2: Driver Comparison Table
+  rows.push(['2. DRIVER COMPARISON TABLE (Individual Driver Metrics)', '', '', '']);
+  rows.push(['Column Name', 'Calculation Logic', 'Business Definition & How to Read It', 'Strategic Interpretation']);
 
   const tableData = [
     [
       'Driver Name',
-      'Aggregated from Source',
-      'Unique driver name. (All daily rows in the month are automatically combined into one row).',
-      'Identify individual drivers.'
+      'Aggregated from monthly records',
+      'Unique driver name. All daily entries for this driver in the month are combined into this single row.',
+      'Identifies individual driver performance.'
     ],
     [
       'Driver Active Hours',
-      'Sum of Driver\'s Daily Hours',
+      'Sum of driver\'s daily driving hours',
       'Total monthly driving hours logged on the road across all working days in that month.',
-      'Evaluate full-time vs part-time driver engagement.'
+      'Evaluates driver workload and full-time vs part-time activity.'
     ],
     [
       '% Share of Fleet Hours',
-      '= Driver Hours / Total Fleet Hours',
+      'Driver Active Hours ÷ Total Fleet Driver Hours',
       'The percentage of the total fleet road time contributed by this individual driver.',
-      'Identify top core contributors to overall fleet operations.'
+      'Identifies top core contributors to overall operations.'
     ],
     [
       'Allocated Dispatch Hours',
-      '= Driver Hours × Fleet Dispatch Ratio',
+      'Driver Active Hours × Fleet Dispatch Ratio',
       'The fair-share dispatch labor hours dedicated to supporting this driver based on their road time.',
-      'Fair-share labor cost and overhead attribution.'
+      'Fair-share labor overhead attribution.'
     ],
     [
       'Completed Trips',
-      'Sum of Driver\'s Monthly Trips',
+      'Sum of driver\'s daily trips',
       'Total successful passenger rides completed during the month.',
-      'Volume output measurement.'
+      'Direct volume output measurement.'
     ],
     [
       'Trips / Driver Hour',
-      '= Completed Trips / Driver Hours',
-      'Driver Productivity Pace: Average trips completed per driving hour.',
-      'Identify efficient routing and high trip turnover drivers.'
+      'Completed Trips ÷ Driver Active Hours',
+      'Driver Productivity Pace: Average trips completed per driving hour on the road.',
+      'Identifies high trip turnover and routing efficiency.'
     ],
     [
       'Trips / Dispatch Hour',
-      '= Completed Trips / Allocated Disp Hrs',
-      'Dispatch Yield: Number of completed trips generated per 1 hour of allocated dispatch labor.',
-      'Measures overall system throughput and operational ROI.'
+      'Completed Trips ÷ Allocated Dispatch Hours',
+      'Dispatch Yield: Number of completed trips delivered per 1 hour of allocated dispatch labor.',
+      'Measures overall operational throughput and dispatch ROI.'
     ]
   ];
 
@@ -150,44 +141,15 @@ function buildReadMeSheet(targetSpreadsheet) {
     rows.push(row);
   }
 
-  rows.push(['', '', '', '']);
-
-  // Section 4: Interactive Tips
-  rows.push(['4. HOW TO USE & TIPS', '', '', '']);
-  rows.push(['Action', 'How to execute', 'What happens', '']);
-  rows.push([
-    'Sync All Monthly Files',
-    'Click menu "🚗 Fleet Dispatch Tools" → "🔄 Sync All Monthly Files from Drive"',
-    'Scans Google Drive (including 2025 & 2026 subfolders) and builds analysis tabs.',
-    ''
-  ]);
-  rows.push([
-    'Sync a Single Month',
-    'Click menu "🚗 Fleet Dispatch Tools" → "📅 Sync Selected Month"',
-    'Prompts you to enter a month (e.g. "August 2026") and syncs that specific workbook.',
-    ''
-  ]);
-  rows.push([
-    'Adjust Overtime',
-    'In any "[Month] - Analysis" sheet, click cell E4 and type any overtime hours',
-    'All KPI cards and every driver\'s allocated dispatch hours recalculate in real-time!',
-    ''
-  ]);
-
-  // Batch write all data
+  sheet.getRange(1, 1, rows.length, 4).setNumberFormat('@');
   sheet.getRange(1, 1, rows.length, 4).setValues(rows);
 
-  // Formatting & Styling
   formatReadMeSheet(sheet);
 
   return sheet;
 }
 
-/**
- * Formats and styles the 'Read Me & Guide' sheet.
- */
 function formatReadMeSheet(sheet) {
-  // Title Banner
   sheet.getRange('A1:D1').merge()
     .setBackground('#1e293b')
     .setFontColor('#ffffff')
@@ -196,7 +158,6 @@ function formatReadMeSheet(sheet) {
     .setVerticalAlignment('middle');
   sheet.setRowHeight(1, 40);
 
-  // Subtitle
   sheet.getRange('A2:D2').merge()
     .setBackground('#334155')
     .setFontColor('#cbd5e1')
@@ -205,7 +166,6 @@ function formatReadMeSheet(sheet) {
     .setVerticalAlignment('middle');
   sheet.setRowHeight(2, 22);
 
-  // Section 1 Header
   sheet.getRange('A4:D4').merge()
     .setBackground('#0f172a')
     .setFontColor('#ffffff')
@@ -213,82 +173,47 @@ function formatReadMeSheet(sheet) {
     .setFontSize(10);
   sheet.setRowHeight(4, 26);
 
-  // Section 2 Header
-  sheet.getRange('A11:D11').merge()
-    .setBackground('#0f172a')
-    .setFontColor('#ffffff')
-    .setFontWeight('bold')
-    .setFontSize(10);
-  sheet.setRowHeight(11, 26);
-
-  sheet.getRange('A12:D12')
+  sheet.getRange('A5:D5')
     .setBackground('#475569')
     .setFontColor('#ffffff')
     .setFontWeight('bold')
     .setFontSize(9)
     .setHorizontalAlignment('center');
-  sheet.setRowHeight(12, 24);
+  sheet.setRowHeight(5, 24);
 
-  // Style KPI rows
-  const kpiRange = sheet.getRange('A13:D19');
+  const kpiRange = sheet.getRange('A6:D12');
   kpiRange.setFontSize(9).setVerticalAlignment('middle');
   kpiRange.setBorder(true, true, true, true, true, true, '#cbd5e1', SpreadsheetApp.BorderStyle.SOLID);
-  sheet.getRange('A13:A19').setFontWeight('bold').setBackground('#f8fafc');
+  sheet.getRange('A6:A12').setFontWeight('bold').setBackground('#f8fafc');
 
-  // Section 3 Header
-  sheet.getRange('A21:D21').merge()
+  sheet.getRange('A14:D14').merge()
     .setBackground('#0f172a')
     .setFontColor('#ffffff')
     .setFontWeight('bold')
     .setFontSize(10);
-  sheet.setRowHeight(21, 26);
+  sheet.setRowHeight(14, 26);
 
-  sheet.getRange('A22:D22')
+  sheet.getRange('A15:D15')
     .setBackground('#475569')
     .setFontColor('#ffffff')
     .setFontWeight('bold')
     .setFontSize(9)
     .setHorizontalAlignment('center');
-  sheet.setRowHeight(22, 24);
+  sheet.setRowHeight(15, 24);
 
-  // Style Table rows
-  const tableRange = sheet.getRange('A23:D29');
+  const tableRange = sheet.getRange('A16:D22');
   tableRange.setFontSize(9).setVerticalAlignment('middle');
   tableRange.setBorder(true, true, true, true, true, true, '#cbd5e1', SpreadsheetApp.BorderStyle.SOLID);
-  sheet.getRange('A23:A29').setFontWeight('bold').setBackground('#f8fafc');
+  sheet.getRange('A16:A22').setFontWeight('bold').setBackground('#f8fafc');
 
-  // Section 4 Header
-  sheet.getRange('A31:D31').merge()
-    .setBackground('#0f172a')
-    .setFontColor('#ffffff')
-    .setFontWeight('bold')
-    .setFontSize(10);
-  sheet.setRowHeight(31, 26);
+  sheet.setColumnWidth(1, 220);
+  sheet.setColumnWidth(2, 280);
+  sheet.setColumnWidth(3, 440);
+  sheet.setColumnWidth(4, 260);
 
-  sheet.getRange('A32:D32')
-    .setBackground('#475569')
-    .setFontColor('#ffffff')
-    .setFontWeight('bold')
-    .setFontSize(9)
-    .setHorizontalAlignment('center');
-  sheet.setRowHeight(32, 24);
-
-  const tipsRange = sheet.getRange('A33:D35');
-  tipsRange.setFontSize(9).setVerticalAlignment('middle');
-  tipsRange.setBorder(true, true, true, true, true, true, '#cbd5e1', SpreadsheetApp.BorderStyle.SOLID);
-  sheet.getRange('A33:A35').setFontWeight('bold').setBackground('#f8fafc');
-
-  // Column Widths
-  sheet.setColumnWidth(1, 220); // Column / Metric Name
-  sheet.setColumnWidth(2, 230); // Formula / Action
-  sheet.setColumnWidth(3, 460); // Meaning / What happens
-  sheet.setColumnWidth(4, 250); // Example / Notes
-
-  // Enable text wrap for descriptions
-  sheet.getRange('A1:D40').setWrap(true);
+  sheet.getRange('A1:D25').setWrap(true);
 }
 
-// Node.js module export for testing
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     buildReadMeSheet,

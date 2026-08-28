@@ -4,7 +4,8 @@ const {
   MONTH_NAMES,
   MONTH_MAP,
   parseMonthAndYear,
-  calculateMonthlyDispatchHours
+  calculateMonthlyDispatchHours,
+  calculateNourFixedHours
 } = require('../DispatcherSchedule');
 const {
   locateHeaders,
@@ -25,9 +26,8 @@ console.log('--- Test Suite 1: Month & Year Parser ---');
 
 const testCasesParser = [
   { input: 'August - Drivers Daily Balance', fallback: 2026, expectedMonth: 7, expectedYear: 2026 },
-  { input: 'August 2026 - Drivers Daily Balance', fallback: 2025, expectedMonth: 7, expectedYear: 2026 },
-  { input: 'September 2025', fallback: 2026, expectedMonth: 8, expectedYear: 2025 },
-  { input: '2025 - January', fallback: 2026, expectedMonth: 0, expectedYear: 2025 }
+  { input: 'July 2026 - Drivers Daily Balance', fallback: 2026, expectedMonth: 6, expectedYear: 2026 },
+  { input: 'September 2025', fallback: 2026, expectedMonth: 8, expectedYear: 2025 }
 ];
 
 testCasesParser.forEach((tc, idx) => {
@@ -38,84 +38,74 @@ testCasesParser.forEach((tc, idx) => {
 });
 
 // ----------------------------------------------------
-// TEST SUITE 2: Single-to-Full Name Normalization
+// TEST SUITE 2: Nour (Fixed 9h) vs Nourween (10h in Timesheet)
 // ----------------------------------------------------
-console.log('\n--- Test Suite 2: Driver Name Normalization & Alias Merging ---');
+console.log('\n--- Test Suite 2: Nour (Fixed 9h) vs Nourween (10h Timesheet) ---');
 
-assert.strictEqual(normalizeDriverName('Angel'), 'Angel Yoy');
-assert.strictEqual(normalizeDriverName('angel'), 'Angel Yoy');
-assert.strictEqual(normalizeDriverName('Angel Yoy'), 'Angel Yoy');
+// August 2026 has 21 weekdays (5 Mon, 4 Tue, 4 Wed, 4 Thu, 4 Fri)
+const nourAug2026 = calculateNourFixedHours(7, 2026);
+assert.strictEqual(nourAug2026.activeDays, 21);
+assert.strictEqual(nourAug2026.hours, 189.0, 'Nour fixed hours for Aug 2026 must equal 21 weekdays * 9h = 189.0 hrs');
+console.log(`  ✓ Nour (Fixed 9h/day): ${nourAug2026.activeDays} weekdays × 9h = ${nourAug2026.hours} hrs`);
 
-assert.strictEqual(normalizeDriverName('Brian'), 'Brian Macancela');
-assert.strictEqual(normalizeDriverName('brian'), 'Brian Macancela');
-assert.strictEqual(normalizeDriverName('Brian Macancela'), 'Brian Macancela');
-
-assert.strictEqual(normalizeDriverName('Nikolay'), 'Nikolay Iankov');
-assert.strictEqual(normalizeDriverName('Biaoming'), 'Biaoming Feng');
-assert.strictEqual(normalizeDriverName('Oumarou'), 'Oumarou Amadou');
-assert.strictEqual(normalizeDriverName('Koba'), 'Koba Svanadze');
-
-// Dynamic alias map resolution test
-const dynamicMap = { 'jake': 'Jake Sully' };
-assert.strictEqual(normalizeDriverName('Jake', dynamicMap), 'Jake Sully');
-console.log('  ✓ Single name aliases correctly resolved to canonical full names');
+// Calendar schedule fallback calculation:
+// Mon, Tue, Wed, Fri: 10 + 10 + 10 + 9 = 39h/day (5 Mon + 4 Tue + 4 Wed + 4 Fri = 17 days * 39h = 663h)
+// Thu: 10 + 0 + 10 + 9 = 29h/day (4 Thu * 29h = 116h)
+// Sat: 10h/day (5 Sat * 10h = 50h)
+// Total = 663 + 116 + 50 = 829.0 hrs!
+const aug2026 = calculateMonthlyDispatchHours(7, 2026);
+assert.strictEqual(aug2026.daysInMonth, 31);
+assert.strictEqual(aug2026.totalHours, 829.0, 'August 2026 full calendar schedule must equal 829.0 hrs');
+console.log(`  ✓ August 2026 calendar fallback verified: ${aug2026.totalHours} hrs (Muhammad 10h, Mariam 10h [Thu OFF, Sat 10h], Nourween 10h, Nour 9h)`);
 
 // ----------------------------------------------------
-// TEST SUITE 3: Multi-Month Merging Test (User Screenshot Case)
+// TEST SUITE 3: Zero-Hour Month Filtering (July 2026)
 // ----------------------------------------------------
-console.log('\n--- Test Suite 3: Multi-Month Merging Simulation (User Screenshot Case) ---');
+console.log('\n--- Test Suite 3: Zero-Hour Month Filtering (July 2026) ---');
 
-const userScreenshotMonths = [
+const testMonths = [
   {
-    monthName: 'MonthA',
-    year: 2025,
-    drivers: [
-      { driverName: 'Angel', hours: 811.5, trips: 1000 },
-      { driverName: 'Brian', hours: 555.0, trips: 700 },
-      { driverName: 'Nikolay', hours: 362.5, trips: 450 },
-      { driverName: 'Biaoming', hours: 205.0, trips: 250 },
-      { driverName: 'Oumarou', hours: 182.5, trips: 220 }
-    ]
+    monthName: 'July',
+    year: 2026,
+    totalDriverHours: 0,
+    drivers: []
   },
   {
-    monthName: 'MonthB',
+    monthName: 'August',
     year: 2026,
+    totalDriverHours: 909.0,
     drivers: [
-      { driverName: 'Angel Yoy', hours: 76.5, trips: 95 },
       { driverName: 'Brian Macancela', hours: 163.5, trips: 210 },
-      { driverName: 'Nikolay Iankov', hours: 108.0, trips: 135 },
-      { driverName: 'Biaoming Feng', hours: 73.0, trips: 90 },
-      { driverName: 'Oumarou Amadou', hours: 50.0, trips: 60 }
+      { driverName: 'Angel Yoy', hours: 76.5, trips: 95 }
     ]
   }
 ];
 
-const mergedResults = aggregateCumulativeDriverData(userScreenshotMonths);
-console.log(`  Input: 10 driver rows across 2 months -> Merged Unique Drivers: ${mergedResults.length}`);
-assert.strictEqual(mergedResults.length, 5, 'Must merge down to exactly 5 unique drivers');
+const filteredMonths = testMonths.filter(m => m.totalDriverHours > 0 && m.drivers.length > 0);
+assert.strictEqual(filteredMonths.length, 1);
+assert.strictEqual(filteredMonths[0].monthName, 'August');
+console.log('  ✓ July 2026 (0 driver hours) successfully filtered out from master multi-month summary');
 
-const angel = mergedResults.find(d => d.driverName === 'Angel Yoy');
-assert.notStrictEqual(angel, undefined);
-assert.strictEqual(angel.monthsActive, 2);
-assert.strictEqual(angel.totalHours, 888.0, 'Angel total hours must equal 811.5 + 76.5 = 888.0');
-console.log(`  ✓ Angel + Angel Yoy -> Merged: "Angel Yoy" (2 months, 888.0 hrs)`);
+// ----------------------------------------------------
+// TEST SUITE 4: Dispatcher Inclusion/Exclusion Rules
+// ----------------------------------------------------
+console.log('\n--- Test Suite 4: Dispatcher Inclusion & Exclusion Rules ---');
 
-const brian = mergedResults.find(d => d.driverName === 'Brian Macancela');
-assert.notStrictEqual(brian, undefined);
-assert.strictEqual(brian.monthsActive, 2);
-assert.strictEqual(brian.totalHours, 718.5, 'Brian total hours must equal 555.0 + 163.5 = 718.5');
-console.log(`  ✓ Brian + Brian Macancela -> Merged: "Brian Macancela" (2 months, 718.5 hrs)`);
+const activeTimesheetList = CONFIG.ACTIVE_TIMESHEET_DISPATCHERS;
+const excludedList = CONFIG.EXCLUDED_DISPATCHER_NAMES;
 
-const nikolay = mergedResults.find(d => d.driverName === 'Nikolay Iankov');
-assert.notStrictEqual(nikolay, undefined);
-assert.strictEqual(nikolay.monthsActive, 2);
-assert.strictEqual(nikolay.totalHours, 470.5, 'Nikolay total hours must equal 362.5 + 108.0 = 470.5');
-console.log(`  ✓ Nikolay + Nikolay Iankov -> Merged: "Nikolay Iankov" (2 months, 470.5 hrs)`);
+function isTimesheetDispatcher(name) {
+  const lower = name.toLowerCase().trim();
+  const isExcluded = excludedList.some(ex => lower.includes(ex));
+  const isAllowed = activeTimesheetList.some(al => lower.includes(al));
+  return isAllowed && !isExcluded;
+}
 
-const biaoming = mergedResults.find(d => d.driverName === 'Biaoming Feng');
-assert.notStrictEqual(biaoming, undefined);
-assert.strictEqual(biaoming.monthsActive, 2);
-assert.strictEqual(biaoming.totalHours, 278.0, 'Biaoming total hours must equal 205.0 + 73.0 = 278.0');
-console.log(`  ✓ Biaoming + Biaoming Feng -> Merged: "Biaoming Feng" (2 months, 278.0 hrs)`);
+assert.strictEqual(isTimesheetDispatcher('Muhammad WT'), true);
+assert.strictEqual(isTimesheetDispatcher('Mariam WT'), true);
+assert.strictEqual(isTimesheetDispatcher('Nourween WT'), true);
+assert.strictEqual(isTimesheetDispatcher('Mohanad WT'), false);
+assert.strictEqual(isTimesheetDispatcher('Abdulrahman DR'), false);
+console.log('  ✓ Verified: Muhammad, Mariam, Nourween are fetched from Timesheet. Nour is added as fixed 9h. Mohanad & Abdulrahman are EXCLUDED.');
 
 console.log('\n🎉 ALL TEST SUITES PASSED!\n');

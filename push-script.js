@@ -131,6 +131,11 @@ async function pushToAppsScript() {
       filePath: path.join(__dirname, 'MasterSummaryBuilder.js')
     },
     {
+      name: 'DispatcherAuditBuilder',
+      type: 'SERVER_JS',
+      filePath: path.join(__dirname, 'DispatcherAuditBuilder.js')
+    },
+    {
       name: 'SettingsManager',
       type: 'SERVER_JS',
       filePath: path.join(__dirname, 'SettingsManager.js')
