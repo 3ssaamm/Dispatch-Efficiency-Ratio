@@ -169,6 +169,65 @@ function calculateNourFixedHours(monthIndex, year) {
 }
 
 /**
+ * Helper to open the Working Time spreadsheet via multiple access methods:
+ * 1. Direct SpreadsheetApp.openById
+ * 2. DriveApp.getFileById
+ * 3. Searching the configured Google Drive Folder for 'Working Time'
+ */
+function getTimesheetSpreadsheet() {
+  const activeCfg = (typeof CONFIG !== 'undefined') ? CONFIG : _CONFIG_DS;
+  const timesheetId = activeCfg && activeCfg.WORKING_TIME_SPREADSHEET_ID;
+
+  if (typeof SpreadsheetApp === 'undefined') return null;
+
+  // Method 1: Try DriveApp.getFileById
+  if (typeof DriveApp !== 'undefined' && timesheetId) {
+    try {
+      const file = DriveApp.getFileById(timesheetId);
+      if (file) {
+        return SpreadsheetApp.open(file);
+      }
+    } catch (e) {
+      Logger.log(`DriveApp openById failed: ${e.message}`);
+    }
+  }
+
+  // Method 2: Try SpreadsheetApp.openById
+  if (timesheetId) {
+    try {
+      return SpreadsheetApp.openById(timesheetId);
+    } catch (e) {
+      Logger.log(`SpreadsheetApp.openById failed: ${e.message}`);
+    }
+  }
+
+  // Method 3: Search the master Drive Folder for 'Working Time'
+  if (typeof DriveApp !== 'undefined') {
+    try {
+      const folderId = (typeof getEffectiveDriveFolderId === 'function') 
+        ? getEffectiveDriveFolderId() 
+        : (activeCfg && activeCfg.DRIVE_FOLDER_ID);
+
+      if (folderId) {
+        const folder = DriveApp.getFolderById(folderId);
+        const files = folder.getFiles();
+        while (files.hasNext()) {
+          const f = files.next();
+          const fName = f.getName().toLowerCase();
+          if (fName.includes('working') || fName.includes('time') || fName.includes('timesheet')) {
+            return SpreadsheetApp.open(f);
+          }
+        }
+      }
+    } catch (e) {
+      Logger.log(`Drive folder timesheet search failed: ${e.message}`);
+    }
+  }
+
+  return null;
+}
+
+/**
  * Directly fetches dispatcher working hours and overtime from the Working Time spreadsheet.
  * Fetches: Muhammad, Mariam, Nourween from timesheet.
  * Adds: Nour (Fixed 9h/day Mon-Fri).
@@ -180,23 +239,28 @@ function calculateNourFixedHours(monthIndex, year) {
  */
 function fetchDispatcherHoursFromTimesheet(monthIndex, year) {
   const activeCfg = (typeof CONFIG !== 'undefined') ? CONFIG : _CONFIG_DS;
-  const timesheetId = activeCfg && activeCfg.WORKING_TIME_SPREADSHEET_ID;
-
-  // Calculate Nour's fixed hours (9h Mon-Fri)
   const nourCalc = calculateNourFixedHours(monthIndex, year);
+  const monthName = MONTH_NAMES[monthIndex];
 
-  if (!timesheetId || typeof SpreadsheetApp === 'undefined') {
+  let timesheetSs = null;
+  try {
+    timesheetSs = getTimesheetSpreadsheet();
+  } catch (err) {
+    Logger.log(`getTimesheetSpreadsheet error: ${err.message}`);
+  }
+
+  if (!timesheetSs) {
     const cal = calculateMonthlyDispatchHours(monthIndex, year);
     return {
       standardHours: cal.totalHours,
       overtimeHours: 0,
       totalHours: cal.totalHours,
       source: 'calendar',
-      monthName: MONTH_NAMES[monthIndex],
+      monthName: monthName,
       year: year,
       tabFound: false,
       tabName: '',
-      permissionError: false,
+      permissionError: true,
       timesheetStaff: [],
       fixedStaff: [{ name: 'Nour', regularHours: nourCalc.hours, overtimeHours: 0, total: nourCalc.hours, notes: `${nourCalc.activeDays} weekdays × 9h` }],
       excludedStaff: []
@@ -204,48 +268,7 @@ function fetchDispatcherHoursFromTimesheet(monthIndex, year) {
   }
 
   try {
-    let timesheetSs = null;
-    try {
-      timesheetSs = SpreadsheetApp.openById(timesheetId);
-    } catch (permErr) {
-      // Gracefully handle permission restriction without bubbling error dialog
-      const cal = calculateMonthlyDispatchHours(monthIndex, year);
-      return {
-        standardHours: cal.totalHours,
-        overtimeHours: 0,
-        totalHours: cal.totalHours,
-        source: 'calendar',
-        monthName: MONTH_NAMES[monthIndex],
-        year: year,
-        tabFound: false,
-        tabName: '',
-        permissionError: true,
-        permissionErrorMessage: permErr.message,
-        timesheetStaff: [],
-        fixedStaff: [{ name: 'Nour', regularHours: nourCalc.hours, overtimeHours: 0, total: nourCalc.hours, notes: `${nourCalc.activeDays} weekdays × 9h` }],
-        excludedStaff: []
-      };
-    }
-
-    if (!timesheetSs) {
-      const cal = calculateMonthlyDispatchHours(monthIndex, year);
-      return {
-        standardHours: cal.totalHours,
-        overtimeHours: 0,
-        totalHours: cal.totalHours,
-        source: 'calendar',
-        monthName: MONTH_NAMES[monthIndex],
-        year: year,
-        tabFound: false,
-        tabName: '',
-        permissionError: false,
-        timesheetStaff: [],
-        fixedStaff: [{ name: 'Nour', regularHours: nourCalc.hours, overtimeHours: 0, total: nourCalc.hours, notes: `${nourCalc.activeDays} weekdays × 9h` }],
-        excludedStaff: []
-      };
-    }
-
-    const monthName = MONTH_NAMES[monthIndex];
+    const allSheets = timesheetSs.getSheets();
     const targetNames = [
       `${monthName} ${year}`,
       `${monthName}`,
@@ -254,7 +277,8 @@ function fetchDispatcherHoursFromTimesheet(monthIndex, year) {
     ];
 
     let sheet = null;
-    const allSheets = timesheetSs.getSheets();
+    
+    // Pass 1: Look for exact month name match
     for (const s of allSheets) {
       const sName = s.getName().trim().toLowerCase();
       for (const t of targetNames) {
@@ -264,6 +288,23 @@ function fetchDispatcherHoursFromTimesheet(monthIndex, year) {
         }
       }
       if (sheet) break;
+    }
+
+    // Pass 2: If no month-named tab, inspect sheets for 'Management Summary' or 'Muhammad'
+    if (!sheet) {
+      for (const s of allSheets) {
+        const sample = s.getRange(1, 1, Math.min(s.getLastRow(), 5), Math.min(s.getLastColumn(), 15)).getValues();
+        const sampleText = sample.map(r => r.join(' ')).join(' ').toLowerCase();
+        if (sampleText.includes('management summary') || sampleText.includes('muhammad')) {
+          sheet = s;
+          break;
+        }
+      }
+    }
+
+    // Pass 3: Fallback to first sheet
+    if (!sheet && allSheets.length > 0) {
+      sheet = allSheets[0];
     }
 
     if (!sheet) {
@@ -293,6 +334,7 @@ function fetchDispatcherHoursFromTimesheet(monthIndex, year) {
     const timesheetStaff = [];
     const excludedStaff = [];
 
+    // Scan for Management Summary table (e.g. Cols J to N)
     let foundSummaryTable = false;
     for (let r = 0; r < Math.min(data.length, 10); r++) {
       for (let c = 0; c < data[r].length; c++) {
@@ -341,6 +383,7 @@ function fetchDispatcherHoursFromTimesheet(monthIndex, year) {
       if (foundSummaryTable) break;
     }
 
+    // Fallback: If management summary block wasn't found, read from bottom TOTAL row of table columns
     if (!foundSummaryTable) {
       let totalRowIdx = -1;
       for (let r = data.length - 1; r >= 0; r--) {
@@ -402,7 +445,7 @@ function fetchDispatcherHoursFromTimesheet(monthIndex, year) {
       tabName: '',
       permissionError: false,
       timesheetStaff: [],
-      fixedStaff: [{ name: 'Nour', regularHours: nourCalc.hours, overtimeHours: 0, total: nourCalc.hours, notes: `${nourCalc.activeDays} weekdays × 9h/day` }],
+      fixedStaff: [{ name: 'Nour', regularHours: nourCalc.hours, overtimeHours: 0, total: nourCalc.hours, notes: `${nourCalc.activeDays} weekdays × 9h` }],
       excludedStaff: []
     };
 
@@ -421,10 +464,68 @@ function fetchDispatcherHoursFromTimesheet(monthIndex, year) {
       permissionError: true,
       permissionErrorMessage: err.message,
       timesheetStaff: [],
-      fixedStaff: [{ name: 'Nour', regularHours: nourCalc.hours, overtimeHours: 0, total: nourCalc.hours, notes: `${nourCalc.activeDays} weekdays × 9h/day` }],
+      fixedStaff: [{ name: 'Nour', regularHours: nourCalc.hours, overtimeHours: 0, total: nourCalc.hours, notes: `${nourCalc.activeDays} weekdays × 9h` }],
       excludedStaff: []
     };
   }
+}
+
+/**
+ * Diagnostic tool: Tests timesheet connection and reports detailed status.
+ */
+function testTimesheetConnection() {
+  const ui = SpreadsheetApp.getUi();
+  let userEmail = '';
+  try {
+    userEmail = Session.getActiveUser().getEmail() || Session.getEffectiveUser().getEmail() || 'Current Google User';
+  } catch (e) {
+    userEmail = 'Current Google User';
+  }
+
+  showToast('Testing Timesheet connection...', 'Diagnostic Test', 5);
+
+  const timesheetSs = getTimesheetSpreadsheet();
+
+  if (!timesheetSs) {
+    const errorMsg = 
+      `❌ Could not access the "Working Time" spreadsheet.\n\n` +
+      `👤 Current Running User: ${userEmail}\n` +
+      `📄 Target Sheet ID: ${CONFIG.WORKING_TIME_SPREADSHEET_ID}\n\n` +
+      `🔧 HOW TO FIX (Choose either):\n` +
+      `1. Open the Working Time sheet:\n` +
+      `   ${CONFIG.WORKING_TIME_SPREADSHEET_URL}\n` +
+      `   Click "Share" -> Change General Access to "Anyone with the link can view".\n\n` +
+      `2. OR Move the "Working Time" spreadsheet into your Google Drive folder:\n` +
+      `   ${CONFIG.DRIVE_FOLDER_URL}`;
+
+    showAlert(errorMsg, 'Timesheet Access Test: FAILED');
+    return false;
+  }
+
+  const title = timesheetSs.getName();
+  const sheets = timesheetSs.getSheets();
+  const sheetNames = sheets.map(s => `"${s.getName()}"`).join(', ');
+
+  const julyTest = fetchDispatcherHoursFromTimesheet(6, 2026);
+  const staffList = julyTest.timesheetStaff.map(s => `• ${s.name}: ${s.regularHours} WT + ${s.overtimeHours} OT`).join('\n');
+  const exclList = julyTest.excludedStaff.map(s => `• ${s.name}: ${s.total} hrs [EXCLUDED]`).join('\n');
+
+  const successMsg = 
+    `✅ Timesheet Connection SUCCESSFUL!\n\n` +
+    `📄 File Title: "${title}"\n` +
+    `📑 Tabs Found: ${sheetNames}\n\n` +
+    `👥 Sourced Dispatchers:\n` +
+    (staffList || '• None found in summary table') + `\n` +
+    `• Nour (Fixed Shift): ${julyTest.fixedStaff[0]?.regularHours || 0} hrs\n\n` +
+    `🚫 Excluded Staff:\n` +
+    (exclList || '• None') + `\n\n` +
+    `📊 July 2026 Totals:\n` +
+    `• Regular WT: ${julyTest.standardHours} hrs\n` +
+    `• Overtime OT: ${julyTest.overtimeHours} hrs\n` +
+    `• Total Dispatch: ${julyTest.totalHours} hrs`;
+
+  showAlert(successMsg, 'Timesheet Access Test: SUCCESS');
+  return true;
 }
 
 function parseNumericValueSafe(val) {
@@ -441,6 +542,7 @@ if (typeof module !== 'undefined' && module.exports) {
     parseMonthAndYear,
     calculateMonthlyDispatchHours,
     calculateNourFixedHours,
-    fetchDispatcherHoursFromTimesheet
+    fetchDispatcherHoursFromTimesheet,
+    getTimesheetSpreadsheet
   };
 }

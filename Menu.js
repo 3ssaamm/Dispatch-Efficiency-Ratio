@@ -14,6 +14,7 @@ function onOpen() {
     .addSeparator()
     .addItem('📊 Open / Refresh "Master Summary" Tab', 'menuBuildMasterSummaryTab')
     .addItem('🕒 Open / Refresh "Dispatcher Hours Audit" Tab', 'menuBuildDispatcherAuditTab')
+    .addItem('🔗 Test Timesheet Connection & Hours', 'testTimesheetConnection')
     .addItem('⚡ Recalculate All Dispatch Ratios', 'menuRecalculateRatios')
     .addSeparator()
     .addItem('📖 Open / Refresh "Read Me & Guide" Tab', 'menuBuildReadMeTab')
