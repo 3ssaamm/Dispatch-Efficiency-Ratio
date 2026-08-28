@@ -30,9 +30,6 @@ const CONFIG = {
   // 39 scheduled weekday hours / 20 operating window hours = 1.95 dispatchers
   AVG_CONCURRENT_DISPATCHERS: 1.95,
 
-  // Optimal dispatch desk capacity benchmark: 1 on-duty dispatcher to 4 active road cars
-  OPTIMAL_DESK_CAPACITY_BENCHMARK: 4.0,
-
   // --------------------------------------------------------------------------
   // DISPATCHER ROSTER & SCHEDULE RULES
   // --------------------------------------------------------------------------

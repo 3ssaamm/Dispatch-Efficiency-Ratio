@@ -2,6 +2,7 @@
  * @fileoverview Settings Manager for Fleet Dispatch Efficiency Engine.
  * Creates and reads the 'Settings' sheet tab to allow configuring
  * Folder IDs, operating window, shift schedules, and defaults directly inside Google Sheets.
+ * Purely neutral operational parameters.
  */
 
 function getEffectiveDriveFolderId() {
@@ -64,9 +65,9 @@ function initSettingsSheet() {
   sheet.getRange('A7').setValue('Excluded Staff:').setFontWeight('bold');
   sheet.getRange('B7:D7').merge().setValue('Abdulrahman, Fares (Disregarded)');
 
-  // Section 2: Operating Window & Concurrency Benchmarks
+  // Section 2: Operating Window & Concurrency Constants
   sheet.getRange('A9:D9').merge()
-    .setValue('2. DAILY OPERATING WINDOW & REAL-TIME CONCURRENCY BENCHMARKS')
+    .setValue('2. DAILY OPERATING WINDOW & CONCURRENCY PARAMETERS')
     .setBackground('#334155')
     .setFontColor('#ffffff')
     .setFontWeight('bold')
@@ -79,21 +80,18 @@ function initSettingsSheet() {
   sheet.getRange('A11').setValue('Avg Concurrent Dispatchers:').setFontWeight('bold');
   sheet.getRange('B11:D11').merge().setValue('1.95 On-Duty Dispatchers (39h Weekday Labor / 20h Window)');
 
-  sheet.getRange('A12').setValue('Optimal Desk Capacity:').setFontWeight('bold');
-  sheet.getRange('B12:D12').merge().setValue('1:4 Target Benchmark (1 On-Duty Dispatcher to 4 Active Road Cars)');
-
   // Section 3: Dispatcher Shift Schedule
-  sheet.getRange('A14:D14').merge()
+  sheet.getRange('A13:D13').merge()
     .setValue('3. DISPATCHER SHIFTS & WEEKLY SCHEDULE (CALENDAR BASE)')
     .setBackground('#334155')
     .setFontColor('#ffffff')
     .setFontWeight('bold')
     .setFontSize(10);
-  sheet.setRowHeight(14, 24);
+  sheet.setRowHeight(13, 24);
 
   const scheduleHeaders = ['Dispatcher', 'Daily Shift Hours', 'Working Days', 'Off Days'];
   for (let c = 0; c < 4; c++) {
-    sheet.getRange(15, c + 1).setValue(scheduleHeaders[c])
+    sheet.getRange(14, c + 1).setValue(scheduleHeaders[c])
       .setBackground('#475569')
       .setFontColor('#ffffff')
       .setFontWeight('bold')
@@ -110,23 +108,23 @@ function initSettingsSheet() {
 
   for (let r = 0; r < shiftData.length; r++) {
     for (let c = 0; c < 4; c++) {
-      sheet.getRange(16 + r, c + 1).setValue(shiftData[r][c])
+      sheet.getRange(15 + r, c + 1).setValue(shiftData[r][c])
         .setHorizontalAlignment(c === 0 ? 'left' : 'center');
     }
   }
 
   // Section 4: Daily Fleet Labor Breakdown
-  sheet.getRange('A22:D22').merge()
+  sheet.getRange('A21:D21').merge()
     .setValue('4. DAILY DISPATCH LABOR HOURS PER DAY OF WEEK')
     .setBackground('#334155')
     .setFontColor('#ffffff')
     .setFontWeight('bold')
     .setFontSize(10);
-  sheet.setRowHeight(22, 24);
+  sheet.setRowHeight(21, 24);
 
   const daysHeader = ['Day of Week', 'Active Dispatchers', 'Daily Total Hours', 'Notes'];
   for (let c = 0; c < 4; c++) {
-    sheet.getRange(23, c + 1).setValue(daysHeader[c])
+    sheet.getRange(22, c + 1).setValue(daysHeader[c])
       .setBackground('#475569')
       .setFontColor('#ffffff')
       .setFontWeight('bold')
@@ -145,7 +143,7 @@ function initSettingsSheet() {
 
   for (let r = 0; r < dailyTotals.length; r++) {
     for (let c = 0; c < 4; c++) {
-      sheet.getRange(24 + r, c + 1).setValue(dailyTotals[r][c])
+      sheet.getRange(23 + r, c + 1).setValue(dailyTotals[r][c])
         .setHorizontalAlignment(c === 0 ? 'left' : 'center');
     }
   }

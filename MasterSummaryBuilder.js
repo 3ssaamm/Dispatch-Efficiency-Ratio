@@ -3,6 +3,7 @@
  * Consolidates all monthly balance sheets with month-over-month trend tables,
  * live dynamic formulas, aggregate KPI cards, 20h operating window concurrency metrics,
  * and an intelligently merged cumulative driver leaderboard.
+ * Purely neutral operational facts without subjective targets.
  */
 
 // Node.js fallback import for testing
@@ -71,14 +72,14 @@ function buildMasterSummarySheet(allMonthsData, targetSpreadsheet) {
   const totalDriverRow = endDriverRow + 1;
 
   const totalRowsNeeded = Math.max(totalDriverRow + 5, 45);
-  const totalCols = 14;
+  const totalCols = 13;
   const matrix = Array.from({ length: totalRowsNeeded }, () => Array(totalCols).fill(''));
 
   // Row 1: Title Banner
   matrix[0][0] = '🚀 FLEET DISPATCH EFFICIENCY — ALL-MONTHS MASTER EXECUTIVE SUMMARY';
 
   // Row 2: Subtitle
-  matrix[1][0] = `Generated: ${new Date().toLocaleString()} | Active Months: ${monthCount} | 20h Daily Window (4am-12am) | Benchmark: 1:4 (4 cars/disp)${excludedNotice}`;
+  matrix[1][0] = `Generated: ${new Date().toLocaleString()} | Active Months: ${monthCount} | 20h Daily Operating Window (4am-12am)${excludedNotice}`;
 
   // Rows 3-5: Aggregate Top Labor KPI Cards
   // Card 1: TOTAL FLEET DRIVER HOURS (Cols A:C)
@@ -96,7 +97,7 @@ function buildMasterSummarySheet(allMonthsData, targetSpreadsheet) {
   matrix[3][6] = monthCount > 0 ? `=SUM(E${startMonthRow}:E${endMonthRow})` : 0;
   matrix[4][6] = 'Total Overtime Logged';
 
-  // Card 4: TOTAL DISPATCH HOURS (Cols J:N)
+  // Card 4: TOTAL DISPATCH HOURS (Cols J:M)
   matrix[2][9] = 'TOTAL DISPATCH LABOR HOURS';
   matrix[3][9] = monthCount > 0 ? `=SUM(F${startMonthRow}:F${endMonthRow})` : 0;
   matrix[4][9] = 'Standard + Overtime';
@@ -112,12 +113,12 @@ function buildMasterSummarySheet(allMonthsData, targetSpreadsheet) {
   matrix[6][4] = `=$A$7*60`;
   matrix[7][4] = 'Minutes of Dispatch per 1 Road Hr';
 
-  // Card 7: OVERALL DRIVER LEVERAGE RATIO (Cols I:N)
+  // Card 7: OVERALL DRIVER LEVERAGE RATIO (Cols I:M)
   matrix[5][8] = 'OVERALL DRIVER LEVERAGE RATIO';
   matrix[6][8] = `=IF($J$4>0, $A$4/$J$4, 0)`;
   matrix[7][8] = 'Road Hours driven per 1 Dispatch Hr';
 
-  // Rows 9-11: 20-Hour Operating Window & Real-Time Concurrency Summary Cards
+  // Rows 9-11: 20-Hour Operating Window & Real-Time Concurrency Summary Cards (Neutral)
   // Card 8: AVG REAL-TIME ACTIVE CARS (Cols A:D)
   matrix[8][0] = 'AVG REAL-TIME CONCURRENT CARS';
   matrix[9][0] = monthCount > 0 ? `=AVERAGE(K${startMonthRow}:K${endMonthRow})` : 0;
@@ -128,10 +129,10 @@ function buildMasterSummarySheet(allMonthsData, targetSpreadsheet) {
   matrix[9][4] = monthCount > 0 ? `=AVERAGE(L${startMonthRow}:L${endMonthRow})` : 0;
   matrix[10][4] = 'Real-Time Load (~1.95 Concurrent Disp)';
 
-  // Card 10: FLEET DESK CAPACITY UTILIZATION (Cols I:N)
-  matrix[8][8] = 'DESK CAPACITY UTILIZATION';
-  matrix[9][8] = monthCount > 0 ? `=AVERAGE(M${startMonthRow}:M${endMonthRow})` : 0;
-  matrix[10][8] = 'Vs 1:4 Optimal Benchmark (4 cars/disp)';
+  // Card 10: DAILY OPERATING COVERAGE (Cols I:M)
+  matrix[8][8] = 'DAILY OPERATING COVERAGE';
+  matrix[9][8] = '20.0 hrs/day';
+  matrix[10][8] = '4:00 AM – 12:00 AM Service Window';
 
   // Row 13: Section 1 Header
   matrix[12][0] = '1. MONTH-OVER-MONTH FLEET DISPATCH & REAL-TIME CONCURRENCY COMPARISON';
@@ -149,8 +150,7 @@ function buildMasterSummarySheet(allMonthsData, targetSpreadsheet) {
   matrix[13][9] = 'Completed Trips';
   matrix[13][10] = 'Est Live Cars';
   matrix[13][11] = 'Cars / Disp';
-  matrix[13][12] = 'Capacity %';
-  matrix[13][13] = 'Trips / Disp Hr';
+  matrix[13][12] = 'Trips / Disp Hr';
 
   // Month Table Rows
   if (monthCount > 0) {
@@ -191,8 +191,7 @@ function buildMasterSummarySheet(allMonthsData, targetSpreadsheet) {
       matrix[rowIdx][9] = m.totalTrips || 0;
       matrix[rowIdx][10] = `=IF(C${r}>0, (C${r}/${daysInMonth})/20, 0)`; // Est. Live Cars
       matrix[rowIdx][11] = `=IF(K${r}>0, K${r}/1.95, 0)`;              // Cars / On-Duty Disp
-      matrix[rowIdx][12] = `=IF(L${r}>0, L${r}/4.0, 0)`;               // Capacity %
-      matrix[rowIdx][13] = `=IF(F${r}>0, J${r}/F${r}, 0)`;              // Trips / Disp Hr
+      matrix[rowIdx][12] = `=IF(F${r}>0, J${r}/F${r}, 0)`;              // Trips / Disp Hr
     }
 
     // Total Month Row
@@ -209,8 +208,7 @@ function buildMasterSummarySheet(allMonthsData, targetSpreadsheet) {
     matrix[totMIdx][9] = `=SUM(J${startMonthRow}:J${endMonthRow})`;
     matrix[totMIdx][10] = `=AVERAGE(K${startMonthRow}:K${endMonthRow})`;
     matrix[totMIdx][11] = `=AVERAGE(L${startMonthRow}:L${endMonthRow})`;
-    matrix[totMIdx][12] = `=AVERAGE(M${startMonthRow}:M${endMonthRow})`;
-    matrix[totMIdx][13] = `=IF(F${totalMonthRow}>0, J${totalMonthRow}/F${totalMonthRow}, 0)`;
+    matrix[totMIdx][12] = `=IF(F${totalMonthRow}>0, J${totalMonthRow}/F${totalMonthRow}, 0)`;
   }
 
   // Section 2: Cumulative Driver Leaderboard
@@ -234,7 +232,6 @@ function buildMasterSummarySheet(allMonthsData, targetSpreadsheet) {
   matrix[sec2HeaderIdx][10] = 'Status';
   matrix[sec2HeaderIdx][11] = 'Notes';
   matrix[sec2HeaderIdx][12] = '';
-  matrix[sec2HeaderIdx][13] = '';
 
   if (driverCount > 0) {
     for (let j = 0; j < driverCount; j++) {
@@ -386,7 +383,7 @@ function collectDataFromExistingAnalysisSheets(ss) {
     let totalDriverHours = 0;
     let totalTrips = 0;
 
-    // Data rows start at row 14 (or row 11 in older templates)
+    // Data rows start at row 14
     const dataStart = 14;
     if (lastRow >= dataStart) {
       const vals = s.getRange(dataStart, 1, lastRow - dataStart, 7).getValues();
@@ -428,7 +425,7 @@ function formatMasterSummarySheet(sheet, cfg) {
     zebraBg: '#f1f5f9'
   };
 
-  sheet.getRange('A1:N1').merge()
+  sheet.getRange('A1:M1').merge()
     .setBackground(theme.headerBg)
     .setFontColor(theme.headerColor)
     .setFontSize(13)
@@ -437,7 +434,7 @@ function formatMasterSummarySheet(sheet, cfg) {
     .setVerticalAlignment('middle');
   sheet.setRowHeight(1, 38);
 
-  sheet.getRange('A2:N2').merge()
+  sheet.getRange('A2:M2').merge()
     .setBackground('#334155')
     .setFontColor('#cbd5e1')
     .setFontSize(9)
@@ -461,10 +458,10 @@ function formatMasterSummarySheet(sheet, cfg) {
   sheet.getRange('G5:I5').merge().setValue('Total Overtime Logged');
   formatKpiCard(sheet, 'G3:I5', 'G4:I4', '#,##0.0 "hrs"', '#b45309');
 
-  sheet.getRange('J3:N3').merge().setValue('TOTAL DISPATCH LABOR HOURS');
-  sheet.getRange('J4:N4').merge();
-  sheet.getRange('J5:N5').merge().setValue('Standard + Overtime');
-  formatKpiCard(sheet, 'J3:N5', 'J4:N4', '#,##0.0 "hrs"', '#0f172a');
+  sheet.getRange('J3:M3').merge().setValue('TOTAL DISPATCH LABOR HOURS');
+  sheet.getRange('J4:M4').merge();
+  sheet.getRange('J5:M5').merge().setValue('Standard + Overtime');
+  formatKpiCard(sheet, 'J3:M5', 'J4:M4', '#,##0.0 "hrs"', '#0f172a');
 
   // Row 2 KPI Cards
   sheet.getRange('A6:D6').merge().setValue('OVERALL FLEET DISPATCH RATIO');
@@ -477,12 +474,12 @@ function formatMasterSummarySheet(sheet, cfg) {
   sheet.getRange('E8:H8').merge().setValue('Dispatch Mins per 1 Road Driving Hr');
   formatKpiCard(sheet, 'E6:H8', 'E7:H7', '0.0 "mins"', '#4338ca');
 
-  sheet.getRange('I6:N6').merge().setValue('OVERALL DRIVER LEVERAGE RATIO');
-  sheet.getRange('I7:N7').merge();
-  sheet.getRange('I8:N8').merge().setValue('Road Hrs driven per 1 Dispatch Hr');
-  formatKpiCard(sheet, 'I6:N8', 'I7:N7', '0.00 "x"', '#15803d');
+  sheet.getRange('I6:M6').merge().setValue('OVERALL DRIVER LEVERAGE RATIO');
+  sheet.getRange('I7:M7').merge();
+  sheet.getRange('I8:M8').merge().setValue('Road Hrs driven per 1 Dispatch Hr');
+  formatKpiCard(sheet, 'I6:M8', 'I7:M7', '0.00 "x"', '#15803d');
 
-  // Row 3 KPI Cards (20h Concurrency)
+  // Row 3 KPI Cards (20h Concurrency - Neutral)
   sheet.getRange('A9:D9').merge().setValue('AVG REAL-TIME CONCURRENT CARS');
   sheet.getRange('A10:D10').merge();
   sheet.getRange('A11:D11').merge().setValue('Estimated Active Cars in 20h Window');
@@ -493,10 +490,10 @@ function formatMasterSummarySheet(sheet, cfg) {
   sheet.getRange('E11:H11').merge().setValue('Real-Time Load (~1.95 Concurrent Disp)');
   formatKpiCard(sheet, 'E9:H11', 'E10:H10', '0.00 "cars/disp"', '#0284c7');
 
-  sheet.getRange('I9:N9').merge().setValue('DESK CAPACITY UTILIZATION');
-  sheet.getRange('I10:N10').merge();
-  sheet.getRange('I11:N11').merge().setValue('Vs 1:4 Optimal Benchmark (4 cars/disp)');
-  formatKpiCard(sheet, 'I9:N11', 'I10:N10', '0.0%', '#7c3aed');
+  sheet.getRange('I9:M9').merge().setValue('DAILY OPERATING COVERAGE');
+  sheet.getRange('I10:M10').merge();
+  sheet.getRange('I11:M11').merge().setValue('4:00 AM – 12:00 AM Service Window');
+  formatKpiCard(sheet, 'I9:M11', 'I10:M10', '@', '#475569');
 
   sheet.setRowHeight(3, 20);
   sheet.setRowHeight(4, 30);
@@ -508,7 +505,7 @@ function formatMasterSummarySheet(sheet, cfg) {
   sheet.setRowHeight(10, 30);
   sheet.setRowHeight(11, 18);
 
-  sheet.getRange('A13:N13').merge()
+  sheet.getRange('A13:M13').merge()
     .setBackground('#0f172a')
     .setFontColor('#ffffff')
     .setFontWeight('bold')
@@ -516,7 +513,7 @@ function formatMasterSummarySheet(sheet, cfg) {
     .setHorizontalAlignment('left');
   sheet.setRowHeight(13, 26);
 
-  sheet.getRange('A14:N14')
+  sheet.getRange('A14:M14')
     .setBackground('#334155')
     .setFontColor('#ffffff')
     .setFontWeight('bold')
@@ -527,11 +524,11 @@ function formatMasterSummarySheet(sheet, cfg) {
   sheet.setRowHeight(14, 28);
 
   if (cfg.monthCount > 0) {
-    const monthDataRange = sheet.getRange(cfg.startMonthRow, 1, cfg.monthCount, 14);
+    const monthDataRange = sheet.getRange(cfg.startMonthRow, 1, cfg.monthCount, 13);
     monthDataRange.setFontSize(9).setVerticalAlignment('middle');
 
     sheet.getRange(cfg.startMonthRow, 1, cfg.monthCount, 1).setHorizontalAlignment('left');
-    sheet.getRange(cfg.startMonthRow, 2, cfg.monthCount, 13).setHorizontalAlignment('right');
+    sheet.getRange(cfg.startMonthRow, 2, cfg.monthCount, 12).setHorizontalAlignment('right');
 
     sheet.getRange(cfg.startMonthRow, 2, cfg.monthCount, 1).setNumberFormat('#,##0');
     sheet.getRange(cfg.startMonthRow, 3, cfg.monthCount, 4).setNumberFormat('#,##0.0');
@@ -541,20 +538,19 @@ function formatMasterSummarySheet(sheet, cfg) {
     sheet.getRange(cfg.startMonthRow, 10, cfg.monthCount, 1).setNumberFormat('#,##0');
     sheet.getRange(cfg.startMonthRow, 11, cfg.monthCount, 1).setNumberFormat('0.0');
     sheet.getRange(cfg.startMonthRow, 12, cfg.monthCount, 1).setNumberFormat('0.00');
-    sheet.getRange(cfg.startMonthRow, 13, cfg.monthCount, 1).setNumberFormat('0.0%');
-    sheet.getRange(cfg.startMonthRow, 14, cfg.monthCount, 1).setNumberFormat('0.00');
+    sheet.getRange(cfg.startMonthRow, 13, cfg.monthCount, 1).setNumberFormat('0.00');
 
     for (let r = cfg.startMonthRow; r <= cfg.endMonthRow; r++) {
-      sheet.getRange(r, 1, 1, 14).setBackground(r % 2 === 0 ? theme.zebraBg : '#ffffff');
+      sheet.getRange(r, 1, 1, 13).setBackground(r % 2 === 0 ? theme.zebraBg : '#ffffff');
       sheet.setRowHeight(r, 22);
     }
 
     monthDataRange.setBorder(true, true, true, true, true, true, '#e2e8f0', SpreadsheetApp.BorderStyle.SOLID);
 
-    const totMRange = sheet.getRange(cfg.totalMonthRow, 1, 1, 14);
+    const totMRange = sheet.getRange(cfg.totalMonthRow, 1, 1, 13);
     totMRange.setBackground('#e2e8f0').setFontWeight('bold').setFontSize(9).setVerticalAlignment('middle');
     sheet.getRange(cfg.totalMonthRow, 1).setHorizontalAlignment('left');
-    sheet.getRange(cfg.totalMonthRow, 2, 1, 13).setHorizontalAlignment('right');
+    sheet.getRange(cfg.totalMonthRow, 2, 1, 12).setHorizontalAlignment('right');
 
     sheet.getRange(cfg.totalMonthRow, 2).setNumberFormat('#,##0.0');
     sheet.getRange(cfg.totalMonthRow, 3, 1, 4).setNumberFormat('#,##0.0');
@@ -564,14 +560,13 @@ function formatMasterSummarySheet(sheet, cfg) {
     sheet.getRange(cfg.totalMonthRow, 10).setNumberFormat('#,##0');
     sheet.getRange(cfg.totalMonthRow, 11).setNumberFormat('0.0');
     sheet.getRange(cfg.totalMonthRow, 12).setNumberFormat('0.00');
-    sheet.getRange(cfg.totalMonthRow, 13).setNumberFormat('0.0%');
-    sheet.getRange(cfg.totalMonthRow, 14).setNumberFormat('0.00');
+    sheet.getRange(cfg.totalMonthRow, 13).setNumberFormat('0.00');
 
     totMRange.setBorder(true, true, true, true, false, false, '#475569', SpreadsheetApp.BorderStyle.SOLID);
     sheet.setRowHeight(cfg.totalMonthRow, 26);
   }
 
-  sheet.getRange(cfg.sec2TitleRow, 1, 1, 14).merge()
+  sheet.getRange(cfg.sec2TitleRow, 1, 1, 13).merge()
     .setBackground('#0f172a')
     .setFontColor('#ffffff')
     .setFontWeight('bold')
@@ -579,7 +574,7 @@ function formatMasterSummarySheet(sheet, cfg) {
     .setHorizontalAlignment('left');
   sheet.setRowHeight(cfg.sec2TitleRow, 26);
 
-  sheet.getRange(cfg.sec2HeaderRow, 1, 1, 14)
+  sheet.getRange(cfg.sec2HeaderRow, 1, 1, 13)
     .setBackground('#334155')
     .setFontColor('#ffffff')
     .setFontWeight('bold')
@@ -590,7 +585,7 @@ function formatMasterSummarySheet(sheet, cfg) {
   sheet.setRowHeight(cfg.sec2HeaderRow, 28);
 
   if (cfg.driverCount > 0) {
-    const driverDataRange = sheet.getRange(cfg.startDriverRow, 1, cfg.driverCount, 14);
+    const driverDataRange = sheet.getRange(cfg.startDriverRow, 1, cfg.driverCount, 13);
     driverDataRange.setFontSize(9).setVerticalAlignment('middle');
 
     sheet.getRange(cfg.startDriverRow, 1, cfg.driverCount, 1).setHorizontalAlignment('left');
@@ -605,13 +600,13 @@ function formatMasterSummarySheet(sheet, cfg) {
     sheet.getRange(cfg.startDriverRow, 7, cfg.driverCount, 4).setNumberFormat('0.00');
 
     for (let dr = cfg.startDriverRow; dr <= cfg.endDriverRow; dr++) {
-      sheet.getRange(dr, 1, 1, 14).setBackground(dr % 2 === 0 ? theme.zebraBg : '#ffffff');
+      sheet.getRange(dr, 1, 1, 13).setBackground(dr % 2 === 0 ? theme.zebraBg : '#ffffff');
       sheet.setRowHeight(dr, 22);
     }
 
     driverDataRange.setBorder(true, true, true, true, true, true, '#e2e8f0', SpreadsheetApp.BorderStyle.SOLID);
 
-    const totDRange = sheet.getRange(cfg.totalDriverRow, 1, 1, 14);
+    const totDRange = sheet.getRange(cfg.totalDriverRow, 1, 1, 13);
     totDRange.setBackground('#e2e8f0').setFontWeight('bold').setFontSize(9).setVerticalAlignment('middle');
     sheet.getRange(cfg.totalDriverRow, 1).setHorizontalAlignment('left');
     sheet.getRange(cfg.totalDriverRow, 2, 1, 9).setHorizontalAlignment('right');
@@ -640,7 +635,6 @@ function formatMasterSummarySheet(sheet, cfg) {
   sheet.setColumnWidth(11, 100);
   sheet.setColumnWidth(12, 100);
   sheet.setColumnWidth(13, 100);
-  sheet.setColumnWidth(14, 100);
 
   sheet.setFrozenRows(14);
 }

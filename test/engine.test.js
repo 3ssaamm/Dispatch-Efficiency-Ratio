@@ -39,17 +39,15 @@ testCasesParser.forEach((tc, idx) => {
 });
 
 // ----------------------------------------------------
-// TEST SUITE 2: 20-Hour Operating Window & Real-Time Concurrency Math
+// TEST SUITE 2: 20-Hour Operating Window & Real-Time Concurrency Math (Neutral)
 // ----------------------------------------------------
-console.log('\n--- Test Suite 2: 20-Hour Window & Concurrency Math ---');
+console.log('\n--- Test Suite 2: 20-Hour Window & Concurrency Math (Neutral) ---');
 
 const operatingWindow = CONFIG.DAILY_OPERATING_WINDOW_HOURS; // 20h
 const avgConcurrentDisp = CONFIG.AVG_CONCURRENT_DISPATCHERS; // 1.95
-const optimalCapacityBenchmark = CONFIG.OPTIMAL_DESK_CAPACITY_BENCHMARK; // 4.0
 
 assert.strictEqual(operatingWindow, 20.0);
 assert.strictEqual(avgConcurrentDisp, 1.95);
-assert.strictEqual(optimalCapacityBenchmark, 4.0);
 
 // Example test case: August 2026 with 909.0 driver hours over 31 days
 const augustDriverHours = 909.0;
@@ -57,16 +55,14 @@ const augustDays = 31;
 
 const estConcurrentCars = (augustDriverHours / augustDays) / operatingWindow; // (909 / 31) / 20 = 1.466 cars
 const carsPerDispatcher = estConcurrentCars / avgConcurrentDisp; // 1.466 / 1.95 = 0.752 cars/disp
-const deskCapacityUtil = carsPerDispatcher / optimalCapacityBenchmark; // 0.752 / 4.0 = 18.8%
 
 assert(estConcurrentCars > 1.4 && estConcurrentCars < 1.5);
 assert(carsPerDispatcher > 0.7 && carsPerDispatcher < 0.8);
-assert(deskCapacityUtil > 0.18 && deskCapacityUtil < 0.20);
 
-console.log(`  ✓ August 2026 Concurrency Metrics:`);
+console.log(`  ✓ August 2026 Neutral Concurrency Metrics:`);
 console.log(`    • Est. Concurrent Cars on Road: ${estConcurrentCars.toFixed(2)} cars`);
 console.log(`    • Live Cars per On-Duty Dispatcher: ${carsPerDispatcher.toFixed(2)} cars/disp`);
-console.log(`    • Desk Capacity Utilization: ${(deskCapacityUtil * 100).toFixed(1)}%`);
+console.log(`    • Operating Coverage: ${operatingWindow} hrs/day`);
 
 // ----------------------------------------------------
 // TEST SUITE 3: October 2025 Timesheet Math (with Mohanad)

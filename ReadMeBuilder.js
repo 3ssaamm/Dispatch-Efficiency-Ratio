@@ -3,6 +3,7 @@
  * Creates a clean '📖 Read Me & Guide' tab in Google Sheets explaining
  * how to read the file, metrics definitions, 20h operating window logic,
  * and real-time concurrency ratios.
+ * Purely neutral operational definitions without subjective targets.
  */
 
 function buildReadMeSheet(targetSpreadsheet) {
@@ -27,14 +28,13 @@ function buildReadMeSheet(targetSpreadsheet) {
     ['', '', '', ''],
 
     // Section 1: Overview
-    ['1. EXECUTIVE OVERVIEW: LABOR OVERHEAD VS. REAL-TIME CONCURRENCY', '', '', ''],
-    ['Concept', 'Operational Definition & Calculation', 'Target / Healthy Range', 'Business Interpretation'],
+    ['1. OPERATIONAL FRAMEWORK: LABOR OVERHEAD VS. REAL-TIME CONCURRENCY', '', '', ''],
+    ['Operational Concept', 'Calculation & Definition', 'Unit', 'Operational Context'],
     ['Daily Operating Window', 'The fleet operates 20 active hours per day (4:00 AM – 12:00 AM Midnight) across 2 overlapping shifts.', '20.0 Hours / Day', 'Defines the daily timeframe over which active road cars and dispatchers operate.'],
-    ['Concurrent Dispatchers On-Duty', 'Total daily scheduled weekday dispatch hours (39h) divided by the 20h window = ~1.95 dispatchers on-duty at any hour.', '~1.95 Dispatchers', 'Shows that individual shifts run lean with approx. 2 dispatchers active concurrently.'],
-    ['Total Labor Overhead Ratio', 'Total Monthly Dispatch Hours / Total Driver Road Hours.', '0.70 – 1.10', 'Measures full payroll labor balance. Sits near ~1:1 because 39 dispatch hours cover a 20h window.'],
-    ['Real-Time Driver Concurrency', '(Total Driver Hours in Month / Operating Days) / 20 Hours.', 'Varies with fleet size', 'Estimates the average number of active cars physically on the road at any given hour.'],
-    ['Live Cars per On-Duty Dispatcher', 'Real-Time Driver Concurrency / 1.95 Concurrent Dispatchers.', '3.0 – 5.0 Cars / Disp', 'Real-time operational load: How many live cars 1 on-duty dispatcher is actively managing simultaneously.'],
-    ['Desk Capacity Utilization (%)', '(Live Cars per Dispatcher / 4.0 Optimal Target) × 100.', '75% – 100%', 'Measures how close the dispatch desk is running relative to optimal peak capacity (1:4 ratio).'],
+    ['Concurrent Dispatchers On-Duty', 'Total daily scheduled weekday dispatch hours (39h) divided by the 20h window = ~1.95 dispatchers on-duty at any hour.', '~1.95 Dispatchers', 'Reflects the average simultaneous dispatcher presence on shift across the operating window.'],
+    ['Total Labor Overhead Ratio', 'Total Monthly Dispatch Hours / Total Driver Road Hours.', 'Ratio (decimal)', 'Measures total labor hours balance. Spreading 39 daily dispatch hours over 20 window hours explains why this sits near ~1:1.'],
+    ['Real-Time Driver Concurrency', '(Total Driver Hours in Month / Operating Days) / 20 Hours.', 'Active Cars', 'Estimates the average number of active cars physically on the road at any single hour.'],
+    ['Live Cars per On-Duty Dispatcher', 'Real-Time Driver Concurrency / 1.95 Concurrent Dispatchers.', 'Cars / Disp', 'Real-time ratio: How many active vehicles 1 on-duty dispatcher is managing concurrently.'],
     ['', '', '', ''],
 
     // Section 2: Core Metrics
@@ -76,6 +76,7 @@ function buildReadMeSheet(targetSpreadsheet) {
     .setFontColor('#ffffff')
     .setFontSize(13)
     .setFontWeight('bold')
+    .setHorizontalAlignment('left')
     .setVerticalAlignment('middle');
   sheet.setRowHeight(1, 38);
 
@@ -87,7 +88,7 @@ function buildReadMeSheet(targetSpreadsheet) {
     .setVerticalAlignment('middle');
   sheet.setRowHeight(2, 22);
 
-  const secHeaders = [4, 14, 26];
+  const secHeaders = [4, 13, 25];
   for (const sRow of secHeaders) {
     sheet.getRange(sRow, 1, 1, 4).merge()
       .setBackground('#0f172a')
@@ -98,7 +99,7 @@ function buildReadMeSheet(targetSpreadsheet) {
     sheet.setRowHeight(sRow, 26);
   }
 
-  const tableHeaders = [5, 15, 27];
+  const tableHeaders = [5, 14, 26];
   for (const tRow of tableHeaders) {
     sheet.getRange(tRow, 1, 1, 4)
       .setBackground('#475569')
@@ -111,9 +112,9 @@ function buildReadMeSheet(targetSpreadsheet) {
 
   // Data rows styling
   const dataSections = [
-    { start: 6, end: 12 },
-    { start: 16, end: 24 },
-    { start: 28, end: 34 }
+    { start: 6, end: 11 },
+    { start: 15, end: 23 },
+    { start: 27, end: 33 }
   ];
 
   for (const sec of dataSections) {
@@ -131,7 +132,7 @@ function buildReadMeSheet(targetSpreadsheet) {
 
   sheet.setColumnWidth(1, 230);
   sheet.setColumnWidth(2, 420);
-  sheet.setColumnWidth(3, 200);
+  sheet.setColumnWidth(3, 160);
   sheet.setColumnWidth(4, 380);
 
   SpreadsheetApp.getActiveSpreadsheet().toast('Read Me & Guide updated!', 'Fleet Tools', 3);

@@ -3,6 +3,7 @@
  * Creates/refreshes compact monthly tabs (e.g. 'August 2026', 'September 2025')
  * with top KPI cards, 20h operating window & real-time concurrency metrics,
  * dynamic formulas, driver allocation table, and premium styling.
+ * Purely neutral data without subjective targets.
  */
 
 // Node.js fallback import for testing
@@ -124,7 +125,7 @@ function buildMonthlyAnalysisSheet(monthData, targetSpreadsheet) {
   matrix[6][4] = `=IF($F$4>0, $A$4/$F$4, 0)`;
   matrix[7][4] = 'Driver Road Hours per 1 Dispatch Hr';
 
-  // Row 9-11: 20-Hour Operating Window & Real-Time Concurrency KPI Cards
+  // Row 9-11: 20-Hour Operating Window & Real-Time Concurrency KPI Cards (Neutral)
   // Card 8: EST. CONCURRENT CARS ON ROAD (Cols A:B)
   matrix[8][0] = 'EST. CONCURRENT CARS ON ROAD';
   matrix[9][0] = `=IF($A$4>0, ($A$4/${daysInMonth})/20, 0)`;
@@ -135,10 +136,10 @@ function buildMonthlyAnalysisSheet(monthData, targetSpreadsheet) {
   matrix[9][2] = `=IF($A$10>0, $A$10/1.95, 0)`;
   matrix[10][2] = 'Real-Time Load (~1.95 Concurrent Disp)';
 
-  // Card 10: DESK CAPACITY UTILIZATION (Cols E:G)
-  matrix[8][4] = 'DESK CAPACITY UTILIZATION';
-  matrix[9][4] = `=IF($C$10>0, $C$10/4.0, 0)`;
-  matrix[10][4] = 'Vs 1:4 Optimal Benchmark (4 cars/disp)';
+  // Card 10: DAILY OPERATING WINDOW (Cols E:G)
+  matrix[8][4] = 'DAILY OPERATING COVERAGE';
+  matrix[9][4] = '20.0 hrs/day';
+  matrix[10][4] = '4:00 AM – 12:00 AM (1.95 Avg Disp)';
 
   // Row 12: Section Divider
   matrix[11][0] = 'DRIVER PERFORMANCE & DISPATCH LABOR ALLOCATION';
@@ -249,7 +250,7 @@ function applyAnalysisSheetFormatting(sheet, startDataRow, endDataRow, totalRow,
   sheet.getRange('E8:G8').merge().setValue('Road Hrs driven per 1 Dispatch Hr');
   formatKpiCard(sheet, 'E6:G8', 'E7:G7', '0.00 "x"', '#15803d');
 
-  // Row 3 KPI Cards (20h Operating Window & Real-Time Concurrency)
+  // Row 3 KPI Cards (20h Operating Window & Real-Time Concurrency - Neutral)
   sheet.getRange('A9:B9').merge().setValue('EST. CONCURRENT CARS ON ROAD');
   sheet.getRange('A10:B10').merge();
   sheet.getRange('A11:B11').merge();
@@ -260,10 +261,10 @@ function applyAnalysisSheetFormatting(sheet, startDataRow, endDataRow, totalRow,
   sheet.getRange('C11:D11').merge();
   formatKpiCard(sheet, 'C9:D11', 'C10:D10', '0.00 "cars/disp"', '#0284c7');
 
-  sheet.getRange('E9:G9').merge().setValue('DESK CAPACITY UTILIZATION');
+  sheet.getRange('E9:G9').merge().setValue('DAILY OPERATING COVERAGE');
   sheet.getRange('E10:G10').merge();
   sheet.getRange('E11:G11').merge();
-  formatKpiCard(sheet, 'E9:G11', 'E10:G10', '0.0%', '#7c3aed');
+  formatKpiCard(sheet, 'E9:G11', 'E10:G10', '@', '#475569');
 
   sheet.setRowHeight(3, 20);
   sheet.setRowHeight(4, 30);
