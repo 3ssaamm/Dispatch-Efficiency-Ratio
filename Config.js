@@ -25,19 +25,19 @@ const CONFIG = {
   // 1. In Timesheet:
   //    - Muhammad: 10h Mon-Fri (Sat/Sun OFF)
   //    - Mariam: 10h Mon-Wed, Fri, Sat (Thursday & Sunday OFF)
-  //    - Nourween: 10h Mon-Fri (Sat/Sun OFF) [Joined in 2026]
+  //    - Nourween: 10h Mon-Fri (Sat/Sun OFF) [Active 2026]
+  //    - Mohanad: Counted from Timesheet (WT + OT)
   // 2. Fixed (NOT in timesheet):
   //    - Nour: Fixed 9h/day Mon-Fri (Sat/Sun OFF)
   // 3. Excluded Staff:
-  //    - Mohanad / Muhanad
   //    - Abdulrahman
-  //    - Fares (Explicitly excluded)
+  //    - Fares (Disregarded)
   // --------------------------------------------------------------------------
-  ACTIVE_TIMESHEET_DISPATCHERS: ['muhammad', 'mohamed', 'mariam', 'nourween'],
+  ACTIVE_TIMESHEET_DISPATCHERS: ['muhammad', 'mohamed', 'mariam', 'nourween', 'mohanad', 'muhanad'],
   FIXED_SCHEDULE_DISPATCHERS: [
     { name: 'Nour', dailyHours: 9, workDays: [1, 2, 3, 4, 5], offDays: [0, 6], notes: 'Fixed 9h/day Mon-Fri (Not in timesheet)' }
   ],
-  EXCLUDED_DISPATCHER_NAMES: ['mohanad', 'muhanad', 'abdulrahman', 'abdelrahman', 'abdo', 'fares'],
+  EXCLUDED_DISPATCHER_NAMES: ['abdulrahman', 'abdelrahman', 'abdo', 'fares'],
 
   // Calendar Shift Schedule (Fallback when timesheet is not present):
   // - Mon, Tue, Wed, Fri: Muhammad (10h) + Mariam (10h) + Nourween (10h) + Nour (9h) = 39.0 hrs/day
@@ -58,7 +58,8 @@ const CONFIG = {
     { id: 1, name: 'Muhammad', dailyHours: 10, source: 'Timesheet', workDays: [1, 2, 3, 4, 5], offDays: [0, 6], notes: '10h Mon-Fri (Sat/Sun OFF)' },
     { id: 2, name: 'Mariam', dailyHours: 10, source: 'Timesheet', workDays: [1, 2, 3, 5, 6], offDays: [0, 4], notes: '10h Mon-Wed, Fri, Sat (Thu & Sun OFF)' },
     { id: 3, name: 'Nourween', dailyHours: 10, source: 'Timesheet', workDays: [1, 2, 3, 4, 5], offDays: [0, 6], notes: '10h Mon-Fri (Sat/Sun OFF) [Active 2026]' },
-    { id: 4, name: 'Nour', dailyHours: 9, source: 'Fixed Schedule', workDays: [1, 2, 3, 4, 5], offDays: [0, 6], notes: 'Fixed 9h/day Mon-Fri (Sat/Sun OFF)' }
+    { id: 4, name: 'Mohanad', dailyHours: 'Logged', source: 'Timesheet', workDays: 'Logged', offDays: 'Logged', notes: 'Logged from Timesheet' },
+    { id: 5, name: 'Nour', dailyHours: 9, source: 'Fixed Schedule', workDays: [1, 2, 3, 4, 5], offDays: [0, 6], notes: 'Fixed 9h/day Mon-Fri (Sat/Sun OFF)' }
   ],
 
   // Driver Name Alias Mapping: Automatically merges single first names into canonical full names
