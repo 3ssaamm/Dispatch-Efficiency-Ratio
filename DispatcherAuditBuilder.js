@@ -23,7 +23,6 @@ function buildDispatcherAuditSheet(allMonthsData, targetSpreadsheet) {
     sheet.clear();
     sheet.clearConditionalFormatRules();
   } else {
-    // Insert after Master Summary tab (index 2)
     sheet = ss.insertSheet(tabName, 2);
   }
 
@@ -97,7 +96,14 @@ function buildDispatcherAuditSheet(allMonthsData, targetSpreadsheet) {
       const laborInfo = fetchDispatcherHoursFromTimesheet(m.monthIndex, m.year);
 
       matrix[rowIdx][0] = `${m.monthName} ${m.year}`;
-      matrix[rowIdx][1] = laborInfo.tabFound ? `✅ Timesheet ("${laborInfo.tabName}")` : '📅 Calendar Schedule Fallback';
+      
+      if (laborInfo.tabFound) {
+        matrix[rowIdx][1] = `✅ Timesheet ("${laborInfo.tabName}")`;
+      } else if (laborInfo.permissionError) {
+        matrix[rowIdx][1] = '🔒 Permission Restricted (Calendar Fallback)';
+      } else {
+        matrix[rowIdx][1] = '📅 Calendar Schedule Fallback';
+      }
 
       // Find individual staff
       const muhammad = laborInfo.timesheetStaff.find(s => s.name.toLowerCase().includes('muhammad') || s.name.toLowerCase().includes('mohamed'));
@@ -120,7 +126,13 @@ function buildDispatcherAuditSheet(allMonthsData, targetSpreadsheet) {
         ? `${excludedTotal.toFixed(1)} hrs (${laborInfo.excludedStaff.map(ex => `${ex.name}: ${ex.total}`).join(', ')}) [EXCLUDED]`
         : '0.0 hrs (Excluded)';
 
-      matrix[rowIdx][10] = laborInfo.tabFound ? 'Verified from Timesheet' : 'Calculated via Schedule';
+      if (laborInfo.tabFound) {
+        matrix[rowIdx][10] = '✅ Verified from Timesheet';
+      } else if (laborInfo.permissionError) {
+        matrix[rowIdx][10] = '⚠️ Share Timesheet link to enable live sync';
+      } else {
+        matrix[rowIdx][10] = 'Calculated via Schedule';
+      }
     }
 
     // Total Row

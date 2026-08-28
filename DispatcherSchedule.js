@@ -4,6 +4,7 @@
  * 1. Fetching verified timesheet hours for Muhammad (10h), Mariam (10h), and Nourween (10h).
  * 2. Adding fixed schedule hours for Nour (9h Mon-Fri).
  * 3. Excluding Mohanad and Abdulrahman.
+ * 4. Gracefully falling back to calendar schedule if timesheet permissions are restricted.
  */
 
 // Node.js fallback import for testing
@@ -195,6 +196,7 @@ function fetchDispatcherHoursFromTimesheet(monthIndex, year) {
       year: year,
       tabFound: false,
       tabName: '',
+      permissionError: false,
       timesheetStaff: [],
       fixedStaff: [{ name: 'Nour', regularHours: nourCalc.hours, overtimeHours: 0, total: nourCalc.hours, notes: `${nourCalc.activeDays} weekdays × 9h` }],
       excludedStaff: []
@@ -202,9 +204,48 @@ function fetchDispatcherHoursFromTimesheet(monthIndex, year) {
   }
 
   try {
-    const timesheetSs = SpreadsheetApp.openById(timesheetId);
+    let timesheetSs = null;
+    try {
+      timesheetSs = SpreadsheetApp.openById(timesheetId);
+    } catch (permErr) {
+      // Gracefully handle permission restriction without bubbling error dialog
+      const cal = calculateMonthlyDispatchHours(monthIndex, year);
+      return {
+        standardHours: cal.totalHours,
+        overtimeHours: 0,
+        totalHours: cal.totalHours,
+        source: 'calendar',
+        monthName: MONTH_NAMES[monthIndex],
+        year: year,
+        tabFound: false,
+        tabName: '',
+        permissionError: true,
+        permissionErrorMessage: permErr.message,
+        timesheetStaff: [],
+        fixedStaff: [{ name: 'Nour', regularHours: nourCalc.hours, overtimeHours: 0, total: nourCalc.hours, notes: `${nourCalc.activeDays} weekdays × 9h` }],
+        excludedStaff: []
+      };
+    }
+
+    if (!timesheetSs) {
+      const cal = calculateMonthlyDispatchHours(monthIndex, year);
+      return {
+        standardHours: cal.totalHours,
+        overtimeHours: 0,
+        totalHours: cal.totalHours,
+        source: 'calendar',
+        monthName: MONTH_NAMES[monthIndex],
+        year: year,
+        tabFound: false,
+        tabName: '',
+        permissionError: false,
+        timesheetStaff: [],
+        fixedStaff: [{ name: 'Nour', regularHours: nourCalc.hours, overtimeHours: 0, total: nourCalc.hours, notes: `${nourCalc.activeDays} weekdays × 9h` }],
+        excludedStaff: []
+      };
+    }
+
     const monthName = MONTH_NAMES[monthIndex];
-    
     const targetNames = [
       `${monthName} ${year}`,
       `${monthName}`,
@@ -236,6 +277,7 @@ function fetchDispatcherHoursFromTimesheet(monthIndex, year) {
         year: year,
         tabFound: false,
         tabName: '',
+        permissionError: false,
         timesheetStaff: [],
         fixedStaff: [{ name: 'Nour', regularHours: nourCalc.hours, overtimeHours: 0, total: nourCalc.hours, notes: `${nourCalc.activeDays} weekdays × 9h` }],
         excludedStaff: []
@@ -251,7 +293,6 @@ function fetchDispatcherHoursFromTimesheet(monthIndex, year) {
     const timesheetStaff = [];
     const excludedStaff = [];
 
-    // Scan Management Summary table (e.g. Cols J to N)
     let foundSummaryTable = false;
     for (let r = 0; r < Math.min(data.length, 10); r++) {
       for (let c = 0; c < data[r].length; c++) {
@@ -300,7 +341,6 @@ function fetchDispatcherHoursFromTimesheet(monthIndex, year) {
       if (foundSummaryTable) break;
     }
 
-    // Fallback: If management summary block wasn't found, read from bottom TOTAL row of table columns
     if (!foundSummaryTable) {
       let totalRowIdx = -1;
       for (let r = data.length - 1; r >= 0; r--) {
@@ -331,7 +371,6 @@ function fetchDispatcherHoursFromTimesheet(monthIndex, year) {
     }
 
     if (foundSummaryTable && timesheetStandardWT > 0) {
-      // Add Nour (Fixed 9h/day Mon-Fri)
       const totalStandard = timesheetStandardWT + nourCalc.hours;
       const totalOvertime = timesheetOvertimeOT;
 
@@ -344,6 +383,7 @@ function fetchDispatcherHoursFromTimesheet(monthIndex, year) {
         year: year,
         tabFound: true,
         tabName: sheet.getName(),
+        permissionError: false,
         timesheetStaff: timesheetStaff,
         fixedStaff: [{ name: 'Nour', regularHours: nourCalc.hours, overtimeHours: 0, total: nourCalc.hours, notes: `${nourCalc.activeDays} weekdays × 9h/day` }],
         excludedStaff: excludedStaff
@@ -360,6 +400,7 @@ function fetchDispatcherHoursFromTimesheet(monthIndex, year) {
       year: year,
       tabFound: false,
       tabName: '',
+      permissionError: false,
       timesheetStaff: [],
       fixedStaff: [{ name: 'Nour', regularHours: nourCalc.hours, overtimeHours: 0, total: nourCalc.hours, notes: `${nourCalc.activeDays} weekdays × 9h/day` }],
       excludedStaff: []
@@ -377,6 +418,8 @@ function fetchDispatcherHoursFromTimesheet(monthIndex, year) {
       year: year,
       tabFound: false,
       tabName: '',
+      permissionError: true,
+      permissionErrorMessage: err.message,
       timesheetStaff: [],
       fixedStaff: [{ name: 'Nour', regularHours: nourCalc.hours, overtimeHours: 0, total: nourCalc.hours, notes: `${nourCalc.activeDays} weekdays × 9h/day` }],
       excludedStaff: []
