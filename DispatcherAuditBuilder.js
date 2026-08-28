@@ -3,6 +3,7 @@
  * Creates a dedicated '🕒 Dispatcher Hours Audit' tab in Google Sheets
  * to verify and audit exact working hours and overtime fetched from the timesheet
  * (Muhammad, Mariam, Nourween) + fixed schedule (Nour 9h Mon-Fri).
+ * Zero hours logged = 0.0 hrs (dispatcher was not active/working).
  */
 
 /**
@@ -111,10 +112,19 @@ function buildDispatcherAuditSheet(allMonthsData, targetSpreadsheet) {
       const nourween = laborInfo.timesheetStaff.find(s => s.name.toLowerCase().includes('nourween'));
       const nour = laborInfo.fixedStaff.find(s => s.name.toLowerCase() === 'nour');
 
-      matrix[rowIdx][2] = muhammad ? `${muhammad.regularHours.toFixed(1)} WT + ${muhammad.overtimeHours.toFixed(1)} OT` : '10h/day Mon-Fri';
-      matrix[rowIdx][3] = mariam ? `${mariam.regularHours.toFixed(1)} WT + ${mariam.overtimeHours.toFixed(1)} OT` : '10h/day Mon-Wed,Fri,Sat';
-      matrix[rowIdx][4] = nourween ? `${nourween.regularHours.toFixed(1)} WT + ${nourween.overtimeHours.toFixed(1)} OT` : '10h/day Mon-Fri';
-      matrix[rowIdx][5] = nour ? `${nour.regularHours.toFixed(1)} hrs (${nour.notes})` : '9h/day Mon-Fri';
+      if (laborInfo.tabFound) {
+        // If timesheet was read, zero hours means the dispatcher was NOT working
+        matrix[rowIdx][2] = muhammad ? `${muhammad.regularHours.toFixed(1)} WT + ${muhammad.overtimeHours.toFixed(1)} OT` : '0.0 hrs (Not Working)';
+        matrix[rowIdx][3] = mariam ? `${mariam.regularHours.toFixed(1)} WT + ${mariam.overtimeHours.toFixed(1)} OT` : '0.0 hrs (Not Working)';
+        matrix[rowIdx][4] = nourween ? `${nourween.regularHours.toFixed(1)} WT + ${nourween.overtimeHours.toFixed(1)} OT` : '0.0 hrs (Not Working)';
+        matrix[rowIdx][5] = nour ? `${nour.regularHours.toFixed(1)} hrs (${nour.notes})` : '0.0 hrs (Not Working)';
+      } else {
+        // Calendar Fallback
+        matrix[rowIdx][2] = '10h/day Mon-Fri (Sched)';
+        matrix[rowIdx][3] = '10h/day Mon-Wed,Fri,Sat (Sched)';
+        matrix[rowIdx][4] = '10h/day Mon-Fri (Sched)';
+        matrix[rowIdx][5] = nour ? `${nour.regularHours.toFixed(1)} hrs (${nour.notes})` : '9h/day Mon-Fri';
+      }
 
       matrix[rowIdx][6] = laborInfo.standardHours;
       matrix[rowIdx][7] = laborInfo.overtimeHours;
@@ -129,7 +139,7 @@ function buildDispatcherAuditSheet(allMonthsData, targetSpreadsheet) {
       if (laborInfo.tabFound) {
         matrix[rowIdx][10] = '✅ Verified from Timesheet';
       } else if (laborInfo.permissionError) {
-        matrix[rowIdx][10] = '⚠️ Share Timesheet link to enable live sync';
+        matrix[rowIdx][10] = '⚠️ Move Timesheet to Drive Folder to sync';
       } else {
         matrix[rowIdx][10] = 'Calculated via Schedule';
       }
@@ -167,9 +177,9 @@ function buildDispatcherAuditSheet(allMonthsData, targetSpreadsheet) {
   matrix[sec2HeaderRow - 1][7] = 'Notes & Rule Summary';
 
   const rosterData = [
-    ['Muhammad', 'Active Dispatcher', 'Working Time Timesheet', '10.0 hrs/day', 'Mon, Tue, Wed, Thu, Fri', 'Sat, Sun', '✅ YES (Counted)', 'Fetched directly from Timesheet (WT + OT)'],
-    ['Mariam', 'Active Dispatcher', 'Working Time Timesheet', '10.0 hrs/day', 'Mon, Tue, Wed, Fri, Sat', 'Thursday, Sun', '✅ YES (Counted)', 'Works Saturday (10h), Takes Thursday & Sunday OFF'],
-    ['Nourween', 'Active Dispatcher', 'Working Time Timesheet', '10.0 hrs/day', 'Mon, Tue, Wed, Thu, Fri', 'Sat, Sun', '✅ YES (Counted)', 'Fetched directly from Timesheet (WT + OT)'],
+    ['Muhammad', 'Active Dispatcher', 'Working Time Timesheet', '10.0 hrs/day', 'Mon, Tue, Wed, Thu, Fri', 'Sat, Sun', '✅ YES (Counted)', 'Fetched directly from Timesheet (0 hrs if not working)'],
+    ['Mariam', 'Active Dispatcher', 'Working Time Timesheet', '10.0 hrs/day', 'Mon, Tue, Wed, Fri, Sat', 'Thursday, Sun', '✅ YES (Counted)', 'Works Saturday (10h), Thu/Sun OFF (0 hrs if not working)'],
+    ['Nourween', 'Active Dispatcher', 'Working Time Timesheet', '10.0 hrs/day', 'Mon, Tue, Wed, Thu, Fri', 'Sat, Sun', '✅ YES (Counted)', 'Fetched directly from Timesheet (0 hrs if not working)'],
     ['Nour', 'Active Dispatcher', 'Fixed Calendar Schedule', '9.0 hrs/day', 'Mon, Tue, Wed, Thu, Fri', 'Sat, Sun', '✅ YES (Counted)', 'Fixed 9h/day Mon-Fri (Not in timesheet)'],
     ['Mohanad (Muhanad)', 'Support Staff', 'Working Time Timesheet', 'Varied', 'As logged', 'As logged', '❌ NO (Excluded)', 'Excluded from dispatch labor overhead'],
     ['Abdulrahman', 'Support Staff', 'Working Time Timesheet', 'Varied', 'As logged', 'As logged', '❌ NO (Excluded)', 'Excluded from dispatch labor overhead']
